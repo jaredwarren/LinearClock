@@ -1,41 +1,45 @@
-// Connects to an WS2812 RGB LED strip with 10 LEDS.
-//
-// See either the others.go or digispark.go files in this directory
-// for the neopixels pin assignments.
 package main
 
 import (
-	"image/color"
-	"machine"
-	"time"
-
-	"tinygo.org/x/drivers/ws2812"
+	// "github.com/jgarff/rpi_ws281x/golang/ws2811"
+	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
 )
 
-var (
-	neo  machine.Pin
-	leds [10]color.RGBA
+const (
+	brightness = 128
+	width      = 8
+	height     = 8
+	ledCounts  = width * height
 )
+
+func checkError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 func main() {
-	neo.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	opt := ws2811.DefaultOptions
+	opt.Channels[0].Brightness = brightness
+	opt.Channels[0].LedCount = ledCounts
 
-	ws := ws2812.NewWS2812(neo)
-	rg := false
+	dev, err := ws2811.MakeWS2811(&opt)
+	checkError(err)
 
-	for {
-		rg = !rg
-		for i := range leds {
-			rg = !rg
-			if rg {
-				// Alpha channel is not supported by WS2812 so we leave it out
-				leds[i] = color.RGBA{R: 0xff, G: 0x00, B: 0x00}
-			} else {
-				leds[i] = color.RGBA{R: 0x00, G: 0xff, B: 0x00}
+	checkError(dev.Init())
+	defer dev.Fini()
+
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			color := uint32(0xff0000)
+			if x > 2 && x < 5 && y > 0 && y < 7 {
+				color = 0xffffff
 			}
+			if x > 0 && x < 7 && y > 2 && y < 5 {
+				color = 0xffffff
+			}
+			dev.Leds(0)[x*height+y] = color
 		}
-
-		ws.WriteColors(leds[:])
-		time.Sleep(100 * time.Millisecond)
 	}
+	checkError(dev.Render())
 }
