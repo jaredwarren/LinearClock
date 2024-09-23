@@ -23,6 +23,9 @@ FROM golang:latest
 COPY --from=lib_builder /usr/local/lib/libws2811.a /usr/local/lib/
 COPY --from=lib_builder /usr/local/include/ws2811 /usr/local/include/ws2811
 
+# needed to fix `github.com/rpi-ws281x/rpi-ws281x-go@v1.0.10: Get "https://proxy.golang.org/github.com/rpi-ws281x/rpi-ws281x-go/@v/v1.0.10.zip": net/http: TLS handshake timeout`
+ENV GOPROXY=direct
+
 WORKDIR /go/src/rpi-ws281x-go
 COPY go.mod .
 COPY go.sum .
