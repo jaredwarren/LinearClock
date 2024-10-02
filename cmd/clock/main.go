@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/jaredwarren/clock/internal/config"
 	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
 )
 
@@ -13,11 +16,17 @@ const (
 )
 
 func main() {
+
+	config, err := readConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+
 	opt := ws2811.DefaultOptions
-	opt.Channels[0].Brightness = brightness
+	opt.Channels[0].Brightness = config.Brightness
+	// opt.Channels[0].Brightness = brightness
 	opt.Channels[0].LedCount = ledCount
 
-	var err error
 	dev, err := ws2811.MakeWS2811(&opt)
 	if err != nil {
 		panic(err)
@@ -63,6 +72,29 @@ func main() {
 	clear(dev)
 	time.Sleep(1 * time.Second)
 	fmt.Println("done")
+}
+
+func readConfig() (*config.Config, error) {
+	// Open the file for reading
+	file, err := os.Open("people.gob")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Create a new decoder
+	decoder := gob.NewDecoder(file)
+
+	// Decode the data
+	var config config.Config
+	err = decoder.Decode(&config)
+	if err != nil {
+		panic(err)
+	}
+
+	// Print the decoded data
+	fmt.Printf("~~~~~~~~~~~~~~~\n %+v\n\n", config)
+	return &config, nil
 }
 
 func wipe(color string, dev *ws2811.WS2811) {
