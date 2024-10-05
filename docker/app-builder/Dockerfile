@@ -27,6 +27,8 @@ COPY --from=lib_builder /usr/local/include/ws2811 /usr/local/include/ws2811
 ENV GOPROXY=direct
 
 WORKDIR /go/src/rpi-ws281x-go
-COPY go.mod .
-COPY go.sum .
-COPY *.go ./
+
+COPY . ./
+# COPY go.mod .
+# COPY go.sum .
+# COPY *.go ./

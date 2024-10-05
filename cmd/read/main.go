@@ -12,7 +12,7 @@ type Person struct {
 
 func main() {
 	// Open the file for reading
-	file, err := os.Open("people.gob")
+	file, err := os.Open("config.gob")
 	if err != nil {
 		panic(err)
 	}

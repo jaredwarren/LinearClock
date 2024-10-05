@@ -18,7 +18,7 @@ func main() {
 	}
 
 	// Open a file for writing
-	file, err := os.Create("people.gob")
+	file, err := os.Create("config.gob")
 	if err != nil {
 		panic(err)
 	}

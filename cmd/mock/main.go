@@ -5,54 +5,63 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"os/signal"
 	"time"
 
 	"github.com/jaredwarren/clock/internal/config"
 	"github.com/jaredwarren/clock/internal/display"
-	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
+	"github.com/jaredwarren/clock/internal/mock"
 )
 
-func NewLedDisplay(c *config.Config) (display.Displayer, error) {
-	opt := ws2811.DefaultOptions
-	opt.Channels[0].Brightness = c.Brightness
-	// for now just do tics
-	opt.Channels[0].LedCount = c.Tick.TicksPerHour * c.Tick.TicksPerHour
-	return ws2811.MakeWS2811(&opt)
-}
-
 func main() {
-	config, err := readConfig()
-	if err != nil {
-		fmt.Println("read config error using default:%w", err)
-	}
+	// config, err := readConfig()
+	// if err != nil {
+	// 	fmt.Println("read config error using default:%w", err)
+	// }
 
-	var dev display.Displayer
-	if config.DisplayMode == "console" {
-		// dev = NewMockDisplay
-	} else {
-		dev, err = NewLedDisplay(config)
-		if err != nil {
-			panic(err)
-		}
-	}
+	var numLeds = 12
+	dev := mock.NewMockDisplay(numLeds)
 
-	err = dev.Init()
+	err := dev.Init()
 	if err != nil {
 		panic(err)
 	}
 	defer dev.Fini()
 
-	time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 	clear(dev)
-	time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 
-	go startClock(dev, config)
+	dev.Leds(0)[0] = getHex("red")
+	dev.Leds(0)[1] = 0x9933ff
+	dev.Leds(0)[2] = 0xffff80
+	dev.Leds(0)[3] = 0x00ffff
+	dev.Render()
 
-	// Wait for Shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-	<-sigChan
+	// t := time.Now()
+	// t := time.Now().Add(1 * time.Hour)
+	// t := time.Now().Add(3 * time.Minute)
+	// t := time.Now().Add(-45 * time.Minute)
+	layout := "2006-01-02T15:04:05.000Z"
+	str := "2014-11-12T11:50:26.371Z"
+	t, _ := time.Parse(layout, str)
+
+	setTime(t, &config.Config{
+		Tick: config.TickConfig{
+			StartHour:    11, // current hour
+			StartLed:     0,
+			Reverse:      false,
+			TicksPerHour: 4,
+			NumHours:     numLeds / 3,
+		},
+		Num: config.NumConfig{},
+	}, dev)
+
+	// go startClock(dev, config)
+
+	// // Wait for Shutdown
+	// sigChan := make(chan os.Signal, 1)
+	// signal.Notify(sigChan, os.Interrupt)
+	// <-sigChan
 
 	// for j := 0; j < 2; j++ {
 	// 	i := 1 // skip first
@@ -85,7 +94,7 @@ func main() {
 	if dev != nil {
 		clear(dev)
 	}
-	time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 	fmt.Println("done")
 }
 
@@ -111,19 +120,41 @@ func startClock(dev display.Displayer, c *config.Config) {
 func setTime(t time.Time, c *config.Config, dev display.Displayer) {
 	tph := float64(c.Tick.TicksPerHour)
 	//
-	m := float64(t.Minute()) // [0, 59]
-	minPerTick := 60 / tph
-	mtick := math.Floor(m / minPerTick) // for now just on or off
+	h := float64(t.Hour()) // 24h
+	// fmt.Println("H:", h)
 
-	h := float64(t.Hour())
-	htick := h * tph // need to + startHour
+	m := float64(t.Minute()) // [0, 59]
+	// fmt.Println("M:", m)
+
+	minPerTick := 60 / tph
+	// fmt.Println("min/tic:", minPerTick)
+	mtick := math.Floor(m / minPerTick) // for now just on or off, later I'd like to dim this...
+	// fmt.Println("min-tic:", mtick)      // turn off all < this value, withing hour
+
+	htick := math.Floor((h - float64(c.Tick.StartHour)) * tph)
+	// fmt.Println("h tick:", htick)
 
 	lastLed := mtick + htick
 
-	fmt.Println(lastLed)
+	// fmt.Println(lastLed)
+
+	for i := range dev.Leds(0) {
+		if i < int(lastLed) {
+			dev.Leds(0)[i] = 0x000000 // off
+		} else if i > int(lastLed) {
+			dev.Leds(0)[i] = getHex("red")
+		} else {
+			ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
+			dev.Leds(0)[i] = rgbToHex(uint8(ftick*255), uint8(0), uint8(0)) // off
+		}
+	}
+	dev.Render()
 
 	// TOOD: turn on or off all leds based on revers and lastLED
 
+}
+func rgbToHex(r, g, b uint8) uint32 {
+	return uint32(r)<<16 | uint32(g)<<8 | uint32(b)
 }
 
 var DefaultConfig = &config.Config{
