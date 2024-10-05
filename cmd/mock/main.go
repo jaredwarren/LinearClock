@@ -44,13 +44,12 @@ func main() {
 
 	layout := "2006-01-02T15:04:05.000Z"
 	// str := "2014-11-12T11:59:26.371Z"
-	str := "2014-11-12T11:59:26.371Z"
+	str := "2014-11-12T12:01:26.371Z"
 	t, _ := time.Parse(layout, str)
 
 	setTime(t, &config.Config{
 		Tick: config.TickConfig{
-			OnColor: 0x00ff00,
-			// OffColor: 0x000000,
+			OnColor:      0x00ff00,
 			OffColor:     0xFF0000,
 			StartHour:    10, // for testing set to curren thour or lower
 			StartLed:     0,
@@ -59,8 +58,43 @@ func main() {
 			NumHours:     4,
 		},
 		Num: config.NumConfig{
-			OnColor:  0x00ff00,
-			OffColor: 0x000000,
+			PastColor:    0xff0000,
+			FutureColor:  0x00ff00,
+			CurrentColor: 0x0000ff,
+		},
+	}, dev)
+
+	setTime(t, &config.Config{
+		Tick: config.TickConfig{
+			OnColor:      0x00ff00,
+			OffColor:     0x000000,
+			StartHour:    10, // for testing set to curren thour or lower
+			StartLed:     0,
+			Reverse:      false,
+			TicksPerHour: 4,
+			NumHours:     4,
+		},
+		Num: config.NumConfig{
+			PastColor:    0x000000,
+			FutureColor:  0x00ff00,
+			CurrentColor: 0x00ff00,
+		},
+	}, dev)
+
+	setTime(t, &config.Config{
+		Tick: config.TickConfig{
+			OnColor:      0x000000,
+			OffColor:     0x00ff00,
+			StartHour:    10, // for testing set to curren thour or lower
+			StartLed:     0,
+			Reverse:      false,
+			TicksPerHour: 4,
+			NumHours:     4,
+		},
+		Num: config.NumConfig{
+			PastColor:    0x00ff00,
+			FutureColor:  0x000000,
+			CurrentColor: 0xff0000,
 		},
 	}, dev)
 
@@ -129,49 +163,56 @@ func setTime(t time.Time, c *config.Config, dev display.Displayer) {
 	h := float64(t.Hour())   // 24h
 	m := float64(t.Minute()) // [0, 59]
 
-	tph := float64(4)
+	// calculate tick that matches input time
+	tph := float64(4) // default 4, to avoid divide by 0
 	if c.Tick.TicksPerHour != 0 {
 		tph = float64(c.Tick.TicksPerHour)
 	}
 	minPerTick := 60 / tph
-	mtick := math.Floor(m / minPerTick) // for now just on or off, later I'd like to dim this...
+	mtick := math.Floor(m / minPerTick)
 	htick := math.Floor((h - float64(c.Tick.StartHour)) * tph)
 	lastLed := mtick + htick
 
 	numTickLeds := c.Tick.NumHours * c.Tick.TicksPerHour
 	for i := 0; i < numTickLeds; i++ {
 		if i < int(lastLed) {
-			// Off
+			// Turn Off tick
 			dev.Leds(0)[i] = c.Tick.OffColor
 		} else if i > int(lastLed) {
-			// On
+			// Turn On tick
 			dev.Leds(0)[i] = c.Tick.OnColor
 		} else {
-			// fade linearly
+			// fade linearly between off and on color
 			ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
+
 			ru8, gu8, bu8 := hexToRGB(c.Tick.OnColor)
-			r := float64(ru8)
-			g := float64(gu8)
-			b := float64(bu8)
+			r := ftick * float64(ru8)
+			g := ftick * float64(gu8)
+			b := ftick * float64(bu8)
 
 			oru8, ogu8, obu8 := hexToRGB(c.Tick.OffColor)
-			or := float64(oru8)
-			og := float64(ogu8)
-			ob := float64(obu8)
+			or := (1 - ftick) * float64(oru8)
+			og := (1 - ftick) * float64(ogu8)
+			ob := (1 - ftick) * float64(obu8)
 
-			fmt.Println(ftick, ftick*r, ftick*g, ftick*b)
-			fmt.Println(ftick, (1-ftick)*or, (1-ftick)*og, (1-ftick)*ob)
-
-			dev.Leds(0)[i] = rgbToHex(uint8((ftick*r)+((1-ftick)*or)), uint8((ftick*g)+((1-ftick)*og)), uint8((ftick*b)+((1-ftick)*ob)))
+			dev.Leds(0)[i] = rgbToHex(uint8(r+or), uint8(g+og), uint8(b+ob))
 		}
 	}
 
-	fmt.Println(h, htick, numTickLeds)
+	// Set "number" leds.
+	// assume: same number of leds as ticks,
+	// assume: numbers follow ticks
+	// assume: no gap and reverse order
 	for i := numTickLeds; i < numTickLeds*2; i++ {
 		if i < int(htick)+numTickLeds {
-			dev.Leds(0)[i] = c.Tick.OffColor
+			dev.Leds(0)[i] = c.Num.PastColor
+		} else if i > int(htick)+numTickLeds {
+			dev.Leds(0)[i] = c.Num.FutureColor
 		} else {
-			dev.Leds(0)[i] = c.Tick.OnColor
+			for j := i; j < i+c.Tick.TicksPerHour; j++ {
+				dev.Leds(0)[j] = c.Num.CurrentColor
+			}
+			i = i + c.Tick.TicksPerHour - 1
 		}
 	}
 	reverseSecondHalf(dev.Leds(0))

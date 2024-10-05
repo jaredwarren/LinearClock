@@ -17,24 +17,19 @@ type Config struct {
 
 // TickConfig ...
 type TickConfig struct {
-	OnColor      uint32
-	OffColor     uint32
 	StartHour    int // 24h time
 	StartLed     int
+	Reverse      bool // increment up or down each tick
 	TicksPerHour int
 	NumHours     int
 
 	// V2 config features to add
-	Mode    string // "count down", "count up", "time", etc
-	Reverse bool   // increment up or down each tick
+	Mode string // "count down", "count up", "time", etc
 }
 
 // NumConfig ...
 type NumConfig struct {
-	FutureColor  uint32
-	CurrentColor uint32
-	PastColor    uint32
-	// V2 config features to add
+	NumLeds int
 	Reverse bool   // increment up or down with time
 	Mode    string // "count down", "count up", "time", etc
 }
