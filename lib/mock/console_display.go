@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/fatih/color"
-	"github.com/jaredwarren/clock/internal/display"
+	"github.com/jaredwarren/clock/lib/display"
 )
 
 type MockDisplay struct {

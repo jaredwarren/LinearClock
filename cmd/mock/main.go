@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/jaredwarren/clock/internal/config"
-	"github.com/jaredwarren/clock/internal/display"
-	"github.com/jaredwarren/clock/internal/mock"
+	"github.com/jaredwarren/clock/lib/config"
+	"github.com/jaredwarren/clock/lib/display"
+	"github.com/jaredwarren/clock/lib/mock"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 	// 	fmt.Println("read config error using default:%w", err)
 	// }
 
-	var numLeds = 12
+	var numLeds = 16
 	dev := mock.NewMockDisplay(numLeds)
 
 	err := dev.Init()
@@ -37,17 +37,18 @@ func main() {
 	dev.Leds(0)[3] = 0x00ffff
 	dev.Render()
 
-	// t := time.Now()
+	t := time.Now()
 	// t := time.Now().Add(1 * time.Hour)
 	// t := time.Now().Add(3 * time.Minute)
 	// t := time.Now().Add(-45 * time.Minute)
-	layout := "2006-01-02T15:04:05.000Z"
-	str := "2014-11-12T11:50:26.371Z"
-	t, _ := time.Parse(layout, str)
+
+	// layout := "2006-01-02T15:04:05.000Z"
+	// str := "2014-11-12T11:50:26.371Z"
+	// t, _ := time.Parse(layout, str)
 
 	setTime(t, &config.Config{
 		Tick: config.TickConfig{
-			StartHour:    11, // current hour
+			StartHour:    12, // current hour
 			StartLed:     0,
 			Reverse:      false,
 			TicksPerHour: 4,

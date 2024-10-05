@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/jaredwarren/clock/internal/config"
-	"github.com/jaredwarren/clock/internal/display"
+	"github.com/jaredwarren/clock/lib/config"
+	"github.com/jaredwarren/clock/lib/display"
 	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
 )
 
