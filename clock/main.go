@@ -8,12 +8,11 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/jaredwarren/clock/lib/config"
-	"github.com/jaredwarren/clock/lib/display"
+	"github.com/jaredwarren/clock/clock/config"
 	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
 )
 
-func NewLedDisplay(c *config.Config) (display.Displayer, error) {
+func NewLedDisplay(c *config.Config) (*ws2811.WS2811, error) {
 	opt := ws2811.DefaultOptions
 	opt.Channels[0].Brightness = c.Brightness
 	// for now just do tics
@@ -27,14 +26,9 @@ func main() {
 		fmt.Println("read config error using default:%w", err)
 	}
 
-	var dev display.Displayer
-	if config.DisplayMode == "console" {
-		// dev = NewMockDisplay
-	} else {
-		dev, err = NewLedDisplay(config)
-		if err != nil {
-			panic(err)
-		}
+	dev, err := NewLedDisplay(config)
+	if err != nil {
+		panic(err)
 	}
 
 	err = dev.Init()
@@ -89,7 +83,7 @@ func main() {
 	fmt.Println("done")
 }
 
-func startClock(dev display.Displayer, c *config.Config) {
+func startClock(dev *ws2811.WS2811, c *config.Config) {
 	if dev == nil {
 		return
 	}
@@ -108,7 +102,7 @@ func startClock(dev display.Displayer, c *config.Config) {
 	}
 }
 
-func setTime(t time.Time, c *config.Config, dev display.Displayer) {
+func setTime(t time.Time, c *config.Config, dev *ws2811.WS2811) {
 	tph := float64(c.Tick.TicksPerHour)
 	//
 	m := float64(t.Minute()) // [0, 59]
@@ -187,7 +181,7 @@ func getHex(cs string) uint32 {
 	return 0xffffff
 }
 
-func clear(dev display.Displayer) {
+func clear(dev *ws2811.WS2811) {
 	leds := dev.Leds(0)
 	for i := 0; i < len(leds); i++ {
 		leds[i] = 0x000000

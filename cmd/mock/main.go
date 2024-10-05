@@ -18,7 +18,7 @@ func main() {
 	// 	fmt.Println("read config error using default:%w", err)
 	// }
 
-	var numLeds = 16
+	var numLeds = 32
 	dev := mock.NewMockDisplay(numLeds)
 
 	err := dev.Init()
@@ -52,7 +52,7 @@ func main() {
 			StartLed:     0,
 			Reverse:      false,
 			TicksPerHour: 4,
-			NumHours:     numLeds / 3,
+			NumHours:     4,
 		},
 		Num: config.NumConfig{},
 	}, dev)
@@ -119,27 +119,18 @@ func startClock(dev display.Displayer, c *config.Config) {
 }
 
 func setTime(t time.Time, c *config.Config, dev display.Displayer) {
-	tph := float64(c.Tick.TicksPerHour)
 	//
-	h := float64(t.Hour()) // 24h
-	// fmt.Println("H:", h)
-
+	h := float64(t.Hour())   // 24h
 	m := float64(t.Minute()) // [0, 59]
-	// fmt.Println("M:", m)
 
+	tph := float64(c.Tick.TicksPerHour)
 	minPerTick := 60 / tph
-	// fmt.Println("min/tic:", minPerTick)
 	mtick := math.Floor(m / minPerTick) // for now just on or off, later I'd like to dim this...
-	// fmt.Println("min-tic:", mtick)      // turn off all < this value, withing hour
-
 	htick := math.Floor((h - float64(c.Tick.StartHour)) * tph)
-	// fmt.Println("h tick:", htick)
-
 	lastLed := mtick + htick
 
-	// fmt.Println(lastLed)
-
-	for i := range dev.Leds(0) {
+	numTickLeds := c.Tick.NumHours * c.Tick.TicksPerHour
+	for i := 0; i < numTickLeds; i++ {
 		if i < int(lastLed) {
 			dev.Leds(0)[i] = 0x000000 // off
 		} else if i > int(lastLed) {
@@ -149,11 +140,33 @@ func setTime(t time.Time, c *config.Config, dev display.Displayer) {
 			dev.Leds(0)[i] = rgbToHex(uint8(ftick*255), uint8(0), uint8(0)) // off
 		}
 	}
+
+	fmt.Println(h, htick, numTickLeds)
+	for i := numTickLeds; i < numTickLeds*2; i++ {
+		if i < int(htick)+numTickLeds {
+			dev.Leds(0)[i] = 0x000000 // off
+		} else {
+			dev.Leds(0)[i] = 0x008800
+		}
+	}
+	reverseSecondHalf(dev.Leds(0))
+
 	dev.Render()
 
 	// TOOD: turn on or off all leds based on revers and lastLED
 
 }
+
+func reverseSecondHalf(s []uint32) {
+	mid := len(s) / 2
+	end := len(s) - 1
+
+	for i := mid; i < end; i++ {
+		s[i], s[end] = s[end], s[i]
+		end--
+	}
+}
+
 func rgbToHex(r, g, b uint8) uint32 {
 	return uint32(r)<<16 | uint32(g)<<8 | uint32(b)
 }

@@ -2,6 +2,7 @@ package mock
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/fatih/color"
 	"github.com/jaredwarren/clock/lib/display"
@@ -31,7 +32,25 @@ func (m *MockDisplay) Leds(channel int) []uint32 {
 }
 
 func (m *MockDisplay) Render() error {
-	for i, led := range m.leds {
+
+	numbers := m.leds[len(m.leds)/2:]
+	slices.Reverse(numbers)
+	for i, led := range numbers {
+		// led := m.leds[i]
+		r := int(uint8(led >> 16))
+		g := int(uint8(led >> 8))
+		b := int(uint8(led))
+		color.RGB(r, g, b).Printf("•")
+
+		// temp separater
+		if i%4 == 3 {
+			fmt.Print("|")
+		}
+	}
+	fmt.Println()
+
+	ticks := m.leds[:len(m.leds)/2]
+	for i, led := range ticks {
 		r := int(uint8(led >> 16))
 		g := int(uint8(led >> 8))
 		b := int(uint8(led))
@@ -43,5 +62,8 @@ func (m *MockDisplay) Render() error {
 		}
 	}
 	fmt.Println()
+
+	fmt.Println()
+
 	return nil
 }
