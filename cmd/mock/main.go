@@ -37,24 +37,31 @@ func main() {
 	dev.Leds(0)[3] = 0x00ffff
 	dev.Render()
 
-	t := time.Now()
-	// t := time.Now().Add(1 * time.Hour)
-	// t := time.Now().Add(3 * time.Minute)
+	// t := time.Now()
+	// t := time.Now().Add(5 * time.Hour)
+	// t := time.Now().Add(25 * time.Minute)
 	// t := time.Now().Add(-45 * time.Minute)
 
-	// layout := "2006-01-02T15:04:05.000Z"
-	// str := "2014-11-12T11:50:26.371Z"
-	// t, _ := time.Parse(layout, str)
+	layout := "2006-01-02T15:04:05.000Z"
+	// str := "2014-11-12T11:59:26.371Z"
+	str := "2014-11-12T11:59:26.371Z"
+	t, _ := time.Parse(layout, str)
 
 	setTime(t, &config.Config{
 		Tick: config.TickConfig{
-			StartHour:    12, // current hour
+			OnColor: 0x00ff00,
+			// OffColor: 0x000000,
+			OffColor:     0xFF0000,
+			StartHour:    10, // for testing set to curren thour or lower
 			StartLed:     0,
 			Reverse:      false,
 			TicksPerHour: 4,
 			NumHours:     4,
 		},
-		Num: config.NumConfig{},
+		Num: config.NumConfig{
+			OnColor:  0x00ff00,
+			OffColor: 0x000000,
+		},
 	}, dev)
 
 	// go startClock(dev, config)
@@ -119,11 +126,13 @@ func startClock(dev display.Displayer, c *config.Config) {
 }
 
 func setTime(t time.Time, c *config.Config, dev display.Displayer) {
-	//
 	h := float64(t.Hour())   // 24h
 	m := float64(t.Minute()) // [0, 59]
 
-	tph := float64(c.Tick.TicksPerHour)
+	tph := float64(4)
+	if c.Tick.TicksPerHour != 0 {
+		tph = float64(c.Tick.TicksPerHour)
+	}
 	minPerTick := 60 / tph
 	mtick := math.Floor(m / minPerTick) // for now just on or off, later I'd like to dim this...
 	htick := math.Floor((h - float64(c.Tick.StartHour)) * tph)
@@ -132,29 +141,42 @@ func setTime(t time.Time, c *config.Config, dev display.Displayer) {
 	numTickLeds := c.Tick.NumHours * c.Tick.TicksPerHour
 	for i := 0; i < numTickLeds; i++ {
 		if i < int(lastLed) {
-			dev.Leds(0)[i] = 0x000000 // off
+			// Off
+			dev.Leds(0)[i] = c.Tick.OffColor
 		} else if i > int(lastLed) {
-			dev.Leds(0)[i] = getHex("red")
+			// On
+			dev.Leds(0)[i] = c.Tick.OnColor
 		} else {
+			// fade linearly
 			ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
-			dev.Leds(0)[i] = rgbToHex(uint8(ftick*255), uint8(0), uint8(0)) // off
+			ru8, gu8, bu8 := hexToRGB(c.Tick.OnColor)
+			r := float64(ru8)
+			g := float64(gu8)
+			b := float64(bu8)
+
+			oru8, ogu8, obu8 := hexToRGB(c.Tick.OffColor)
+			or := float64(oru8)
+			og := float64(ogu8)
+			ob := float64(obu8)
+
+			fmt.Println(ftick, ftick*r, ftick*g, ftick*b)
+			fmt.Println(ftick, (1-ftick)*or, (1-ftick)*og, (1-ftick)*ob)
+
+			dev.Leds(0)[i] = rgbToHex(uint8((ftick*r)+((1-ftick)*or)), uint8((ftick*g)+((1-ftick)*og)), uint8((ftick*b)+((1-ftick)*ob)))
 		}
 	}
 
 	fmt.Println(h, htick, numTickLeds)
 	for i := numTickLeds; i < numTickLeds*2; i++ {
 		if i < int(htick)+numTickLeds {
-			dev.Leds(0)[i] = 0x000000 // off
+			dev.Leds(0)[i] = c.Tick.OffColor
 		} else {
-			dev.Leds(0)[i] = 0x008800
+			dev.Leds(0)[i] = c.Tick.OnColor
 		}
 	}
 	reverseSecondHalf(dev.Leds(0))
 
 	dev.Render()
-
-	// TOOD: turn on or off all leds based on revers and lastLED
-
 }
 
 func reverseSecondHalf(s []uint32) {
@@ -169,6 +191,13 @@ func reverseSecondHalf(s []uint32) {
 
 func rgbToHex(r, g, b uint8) uint32 {
 	return uint32(r)<<16 | uint32(g)<<8 | uint32(b)
+}
+
+func hexToRGB(c uint32) (uint8, uint8, uint8) {
+	r := (uint8(c >> 16))
+	g := (uint8(c >> 8))
+	b := (uint8(c))
+	return r, g, b
 }
 
 var DefaultConfig = &config.Config{
