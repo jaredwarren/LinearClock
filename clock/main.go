@@ -15,10 +15,11 @@ const ConfigFile = "config.gob"
 
 var DefaultConfig = &config.Config{
 	RefreshRate: 1 * time.Minute,
+	Brightness:  64,
 	Tick: config.TickConfig{
 		OnColor:      0x00ff00,
 		OffColor:     0xFF0000,
-		StartHour:    18, // for testing set to curren thour or lower
+		StartHour:    8, // for testing set to curren thour or lower
 		StartLed:     1,
 		Reverse:      false,
 		TicksPerHour: 4,
@@ -38,8 +39,7 @@ func NewLedDisplay(c *config.Config) (*ws2811.WS2811, error) {
 
 	// var numLeds = (c.Tick.NumHours*c.Tick.TicksPerHour)*2 + c.Gap*2
 	// for now just do everything
-	// opt.Channels[0].LedCount = 144
-	opt.Channels[0].LedCount = 24
+	opt.Channels[0].LedCount = 144
 	return ws2811.MakeWS2811(&opt)
 }
 
@@ -50,6 +50,7 @@ func main() {
 		fmt.Println("read config error using default:%w", err)
 		c = DefaultConfig
 	}
+	fmt.Printf("~~~~~~~~~~~~~~~\n %+v\n\n", c)
 
 	dev, err := NewLedDisplay(c)
 	if err != nil {
@@ -66,13 +67,7 @@ func main() {
 	display.Clear(dev)
 	time.Sleep(1 * time.Second)
 
-	dev.Leds(0)[0] = 0x00ff00
-	dev.Leds(0)[1] = 0x00ff00
-	dev.Leds(0)[2] = 0x00ff00
-	dev.Leds(0)[3] = 0x00ff00
-	dev.Render()
-
-	// go startClock(dev, c)
+	go startClock(dev, c)
 
 	// // Wait for Shutdown
 	fmt.Println("waiting...")

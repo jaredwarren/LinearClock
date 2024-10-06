@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/jaredwarren/clock/lib/config"
-	"github.com/jaredwarren/clock/lib/display"
+	"github.com/jaredwarren/clock/clock/config"
+	"github.com/jaredwarren/clock/clock/display"
 	"github.com/jaredwarren/clock/lib/mock"
 )
 
