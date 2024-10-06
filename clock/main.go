@@ -1,32 +1,57 @@
 package main
 
 import (
-	"encoding/gob"
 	"fmt"
-	"math"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/jaredwarren/clock/clock/config"
+	"github.com/jaredwarren/clock/clock/display"
 	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
 )
+
+const ConfigFile = "config.gob"
+
+var DefaultConfig = &config.Config{
+	RefreshRate: 1 * time.Minute,
+	Tick: config.TickConfig{
+		OnColor:      0x00ff00,
+		OffColor:     0xFF0000,
+		StartHour:    18, // for testing set to curren thour or lower
+		StartLed:     1,
+		Reverse:      false,
+		TicksPerHour: 4,
+		NumHours:     6,
+	},
+	Num: config.NumConfig{
+		PastColor:    0xff0000,
+		FutureColor:  0x00ff00,
+		CurrentColor: 0x0000ff,
+	},
+	Gap: 73 - 8,
+}
 
 func NewLedDisplay(c *config.Config) (*ws2811.WS2811, error) {
 	opt := ws2811.DefaultOptions
 	opt.Channels[0].Brightness = c.Brightness
-	// for now just do tics
-	opt.Channels[0].LedCount = c.Tick.TicksPerHour * c.Tick.TicksPerHour
+
+	// var numLeds = (c.Tick.NumHours*c.Tick.TicksPerHour)*2 + c.Gap*2
+	// for now just do everything
+	// opt.Channels[0].LedCount = 144
+	opt.Channels[0].LedCount = 24
 	return ws2811.MakeWS2811(&opt)
 }
 
 func main() {
-	config, err := readConfig()
+	fmt.Println("starting...")
+	c, err := config.ReadConfig(ConfigFile)
 	if err != nil {
 		fmt.Println("read config error using default:%w", err)
+		c = DefaultConfig
 	}
 
-	dev, err := NewLedDisplay(config)
+	dev, err := NewLedDisplay(c)
 	if err != nil {
 		panic(err)
 	}
@@ -38,46 +63,28 @@ func main() {
 	defer dev.Fini()
 
 	time.Sleep(1 * time.Second)
-	clear(dev)
+	display.Clear(dev)
 	time.Sleep(1 * time.Second)
 
-	go startClock(dev, config)
+	dev.Leds(0)[0] = 0x00ff00
+	dev.Leds(0)[1] = 0x00ff00
+	dev.Leds(0)[2] = 0x00ff00
+	dev.Leds(0)[3] = 0x00ff00
+	dev.Render()
 
-	// Wait for Shutdown
+	// go startClock(dev, c)
+
+	// // Wait for Shutdown
+	fmt.Println("waiting...")
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	<-sigChan
 
-	// for j := 0; j < 2; j++ {
-	// 	i := 1 // skip first
-
-	// 	ticker := time.NewTicker(1 * time.Second)
-	// 	done := make(chan bool)
-	// 	go func() {
-	// 		for {
-	// 			select {
-	// 			case <-done:
-	// 				return
-	// 			case <-ticker.C:
-	// 				dev.Leds(0)[i] = getHex("red")
-	// 				dev.Render()
-	// 				i++
-	// 			}
-	// 		}
-	// 	}()
-
-	// 	time.Sleep(60 * time.Second)
-	// 	ticker.Stop()
-	// 	done <- true
-	// 	fmt.Println("Ticker stopped")
-	// }
-
-	// // wipe("red", dev)
-	// // time.Sleep(10 * time.Second)
+	fmt.Print("shutting down...")
 
 	// try to clear leds when shutting down
 	if dev != nil {
-		clear(dev)
+		display.Clear(dev)
 	}
 	time.Sleep(1 * time.Second)
 	fmt.Println("done")
@@ -88,103 +95,21 @@ func startClock(dev *ws2811.WS2811, c *config.Config) {
 		return
 	}
 	for {
-		setTime(time.Now(), c, dev)
+		fmt.Println("tick:", time.Now())
+		err := display.DisplayTime(time.Now(), c, dev)
+		if err != nil {
+			fmt.Println("display time error:", err)
+			return
+		}
 
 		time.Sleep(c.RefreshRate)
 
 		// refresh config, only override if successful. Otherwise don't change config.
-		nc, err := readConfig()
+		nc, err := config.ReadConfig(ConfigFile)
 		if err != nil {
 			fmt.Println("read config, no change:%w", err)
 		} else {
 			c = nc
 		}
 	}
-}
-
-func setTime(t time.Time, c *config.Config, dev *ws2811.WS2811) {
-	tph := float64(c.Tick.TicksPerHour)
-	//
-	m := float64(t.Minute()) // [0, 59]
-	minPerTick := 60 / tph
-	mtick := math.Floor(m / minPerTick) // for now just on or off
-
-	h := float64(t.Hour())
-	htick := h * tph // need to + startHour
-
-	lastLed := mtick + htick
-
-	fmt.Println(lastLed)
-
-	// TOOD: turn on or off all leds based on revers and lastLED
-
-}
-
-var DefaultConfig = &config.Config{
-	DisplayMode: "console",
-	// General
-	Brightness:  64,
-	RefreshRate: time.Second * 2,
-	// Ticks
-	Tick: config.TickConfig{
-		StartHour:    18, // 6:00pm
-		StartLed:     1,
-		TicksPerHour: 4,
-		NumHours:     3,
-		Reverse:      false,
-	},
-	// TODO: numbers
-}
-
-func readConfig() (*config.Config, error) {
-	// Open the file for reading
-	file, err := os.Open("config.gob")
-	if err != nil {
-		return DefaultConfig, err
-	}
-	defer file.Close()
-
-	// Create a new decoder
-	decoder := gob.NewDecoder(file)
-
-	// Decode the data
-	var config config.Config
-	err = decoder.Decode(&config)
-	if err != nil {
-		return DefaultConfig, err
-	}
-
-	// Print the decoded data
-	fmt.Printf("~~~~~~~~~~~~~~~\n %+v\n\n", config)
-	return &config, nil
-}
-
-// func wipe(color string, dev *ws2811.WS2811) {
-// 	for i := 0; i < ledCount; i++ {
-// 		dev.Leds(0)[i] = getHex(color)
-// 		dev.Render()
-// 		time.Sleep(50 * time.Millisecond)
-// 	}
-// }
-
-func getHex(cs string) uint32 {
-	switch cs {
-	case "red":
-		return 0xff0000
-	case "green":
-		return 0x00ff00
-	case "white":
-		return 0xffffff
-	case "black":
-		return 0x000000
-	}
-	return 0xffffff
-}
-
-func clear(dev *ws2811.WS2811) {
-	leds := dev.Leds(0)
-	for i := 0; i < len(leds); i++ {
-		leds[i] = 0x000000
-	}
-	dev.Render()
 }

@@ -1,6 +1,10 @@
 package config
 
-import "time"
+import (
+	"encoding/gob"
+	"os"
+	"time"
+)
 
 type Config struct {
 	DisplayMode string
@@ -37,4 +41,26 @@ type NumConfig struct {
 	// V2 config features to add
 	Reverse bool   // increment up or down with time
 	Mode    string // "count down", "count up", "time", etc
+}
+
+func ReadConfig(filepath string) (*Config, error) {
+	// Open the file for reading
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Create a new decoder
+	decoder := gob.NewDecoder(file)
+
+	// Decode the data
+	var config Config
+	err = decoder.Decode(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Print the decoded data
+	return &config, nil
 }

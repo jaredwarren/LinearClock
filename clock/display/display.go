@@ -1,10 +1,11 @@
 package display
 
 import (
+	"fmt"
 	"math"
 	"time"
 
-	"github.com/jaredwarren/clock/lib/config"
+	"github.com/jaredwarren/clock/clock/config"
 )
 
 type Displayer interface {
@@ -29,13 +30,14 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 	lastLed := mtick + htick
 
 	numTickLeds := c.Tick.NumHours * c.Tick.TicksPerHour
+	fmt.Println("numTickLEDS:", numTickLeds, lastLed)
 	for i := 0; i < numTickLeds; i++ {
 		if i < int(lastLed) {
 			// Turn Off tick
-			dev.Leds(0)[i] = c.Tick.OffColor
+			dev.Leds(0)[c.Tick.StartLed+i] = c.Tick.OffColor
 		} else if i > int(lastLed) {
 			// Turn On tick
-			dev.Leds(0)[i] = c.Tick.OnColor
+			dev.Leds(0)[c.Tick.StartLed+i] = c.Tick.OnColor
 		} else {
 			// fade linearly between off and on color
 			ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
@@ -50,7 +52,7 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 			og := (1 - ftick) * float64(ogu8)
 			ob := (1 - ftick) * float64(obu8)
 
-			dev.Leds(0)[i] = rgbToHex(uint8(r+or), uint8(g+og), uint8(b+ob))
+			dev.Leds(0)[c.Tick.StartLed+i] = rgbToHex(uint8(r+or), uint8(g+og), uint8(b+ob))
 		}
 	}
 
@@ -72,6 +74,10 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 	}
 	reverseSecondHalf(dev.Leds(0))
 
+	fmt.Print("rendering...")
+	defer func() {
+		fmt.Println("done")
+	}()
 	return dev.Render()
 }
 
