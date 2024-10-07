@@ -13,7 +13,7 @@ type MockDisplay struct {
 }
 
 func NewMockDisplay(numLeds int) display.Displayer {
-	leds := make([]uint32, numLeds)
+	leds := make([]uint32, 144)
 	return &MockDisplay{
 		leds: leds,
 	}
@@ -33,6 +33,40 @@ func (m *MockDisplay) Leds(channel int) []uint32 {
 
 func (m *MockDisplay) Render() error {
 
+	ticks := m.leds[:len(m.leds)/2]
+	for i, led := range ticks {
+		r := int(uint8(led >> 16))
+		g := int(uint8(led >> 8))
+		b := int(uint8(led))
+		color.RGB(r, g, b).Printf("■")
+
+		// temp separater
+		if i%4 == 3 {
+			fmt.Print("|")
+		}
+	}
+	numbers := m.leds[len(m.leds)/2:]
+	// slices.Reverse(numbers)
+	for i, led := range numbers {
+		// led := m.leds[i]
+		r := int(uint8(led >> 16))
+		g := int(uint8(led >> 8))
+		b := int(uint8(led))
+		color.RGB(r, g, b).Printf("•")
+
+		// temp separater
+		if i%4 == 3 {
+			fmt.Print("|")
+		}
+	}
+	fmt.Println()
+
+	fmt.Println()
+
+	return nil
+}
+
+func (m *MockDisplay) renderNLine() error {
 	numbers := m.leds[len(m.leds)/2:]
 	slices.Reverse(numbers)
 	for i, led := range numbers {

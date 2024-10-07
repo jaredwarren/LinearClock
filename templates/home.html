@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bootstrap demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <!-- <link rel="stylesheet" href="styles.css" /> -->
+</head>
+
+<body>
+    <!-- <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Navbar</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Link</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            Dropdown
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="#">Action</a></li>
+                            <li><a class="dropdown-item" href="#">Another action</a></li>
+                            <li>
+                                <hr class="dropdown-divider" />
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">Something else here</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link disabled">Disabled</a>
+                    </li>
+                </ul>
+                <form class="d-flex" role="search">
+                    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" />
+                    <button class="btn btn-outline-success" type="submit">
+                        Search
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav> -->
+
+    <div class="container my-5">
+        <form action="/config" method="POST">
+            <div class="mb-3">
+                <label for="exampleInputEmail1" class="form-label">Birghtness</label>
+                <input type="range" name="brightness" id="brightness" class="form-control form-range slider" min="1"
+                    max="255" value="128" />
+                <div id="emailHelp" class="form-text">
+                    Requires restart
+                </div>
+            </div>
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label for="inputRefresh" class="col-form-label">Refresh Rate</label>
+                </div>
+                <div class="col-auto">
+                    <input type="number" name="refresh-rate" min="0" max="60" id="inputRefreshRate" class="form-control"
+                        aria-describedby="refreshRateHelpInline">
+                </div>
+                <div class="col-auto">
+                    <span id="refreshRateHelpInline" class="form-text">
+                        Minutes
+                    </span>
+                </div>
+            </div>
+            <hr>
+            <fieldset>
+                <legend>Tick LEDs</legend>
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="inputTickPastColor" class="col-form-label">Past Color</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="color" name="tick.past-color" style="width: 100px;" id="inputTickPastColor"
+                            class="form-control" aria-describedby="tickPastColorHelpInline">
+                    </div>
+                    <div class="col-auto">
+                        <span id="tickPastColorHelpInline" class="form-text">
+                            Default Black = off
+                        </span>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="inputTickPresentColor" class="col-form-label">Present Color</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="color" name="tick.present-color" style="width: 100px;" id="inputTickPresentColor"
+                            class="form-control" aria-describedby="tickPresentColorHelpInline">
+                    </div>
+                    <div class="col-auto">
+                        <span id="tickPresentColorHelpInline" class="form-text">
+                            Default Black = off
+                        </span>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="inputTickFutureColor" class="col-form-label">Future Color</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="color" name="tick.future-color" style="width: 100px;" id="inputTickFutureColor"
+                            class="form-control" aria-describedby="tickFutureColorHelpInline">
+                    </div>
+                    <div class="col-auto">
+                        <span id="tickFutureColorHelpInline" class="form-text">
+                            Default Black = off
+                        </span>
+                    </div>
+                </div>
+            </fieldset>
+            <hr>
+            <fieldset>
+                <legend>Number LEDs</legend>
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="inputNumPastColor" class="col-form-label">Past Color</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="color" name="num.past-color" style="width: 100px;" id="inputNumPastColor"
+                            class="form-control" aria-describedby="numPastColorHelpInline">
+                    </div>
+                    <div class="col-auto">
+                        <span id="numPastColorHelpInline" class="form-text">
+                            Default Black = off
+                        </span>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="inputNumPresentColor" class="col-form-label">Present Color</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="color" name="num.present-color" style="width: 100px;" id="inputNumPresentColor"
+                            class="form-control" aria-describedby="numPresentColorHelpInline">
+                    </div>
+                    <div class="col-auto">
+                        <span id="numPresentColorHelpInline" class="form-text">
+                            Default Black = off
+                        </span>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="inputNumFutureColor" class="col-form-label">Future Color</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="color" name="num.future-color" style="width: 100px;" id="inputNumFutureColor"
+                            class="form-control" aria-describedby="numFutureColorHelpInline">
+                    </div>
+                    <div class="col-auto">
+                        <span id="numFutureColorHelpInline" class="form-text">
+                            Default Black = off
+                        </span>
+                    </div>
+                </div>
+            </fieldset>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>

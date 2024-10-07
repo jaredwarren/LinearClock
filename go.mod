@@ -2,7 +2,10 @@ module github.com/jaredwarren/clock
 
 go 1.23.0
 
-require github.com/fatih/color v1.17.1-0.20241003070628-1c8d8706604e
+require (
+	github.com/davecgh/go-spew v1.1.1
+	github.com/fatih/color v1.17.1-0.20241003070628-1c8d8706604e
+)
 
 require (
 	github.com/mattn/go-colorable v0.1.13 // indirect

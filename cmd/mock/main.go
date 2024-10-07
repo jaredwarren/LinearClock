@@ -14,9 +14,9 @@ import (
 var DefaultConfig = &config.Config{
 	RefreshRate: 1 * time.Minute,
 	Tick: config.TickConfig{
-		OnColor:      0x00ff00,
-		OffColor:     0xFF0000,
-		StartHour:    17, // for testing set to curren thour or lower
+		FutureColor:  0x00ff00,
+		PastColor:    0xFF0000,
+		StartHour:    9, // for testing set to curren thour or lower
 		StartLed:     0,
 		Reverse:      false,
 		TicksPerHour: 4,
@@ -25,9 +25,9 @@ var DefaultConfig = &config.Config{
 	Num: config.NumConfig{
 		PastColor:    0xff0000,
 		FutureColor:  0x00ff00,
-		CurrentColor: 0x0000ff,
+		PresentColor: 0x0000ff,
 	},
-	Gap: 4, // half
+	Gap: 4,
 }
 
 func main() {

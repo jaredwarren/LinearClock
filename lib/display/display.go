@@ -32,25 +32,30 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 	for i := 0; i < numTickLeds; i++ {
 		if i < int(lastLed) {
 			// Turn Off tick
-			dev.Leds(0)[i] = c.Tick.OffColor
+			dev.Leds(0)[i] = c.Tick.PastColor
 		} else if i > int(lastLed) {
 			// Turn On tick
-			dev.Leds(0)[i] = c.Tick.OnColor
+			dev.Leds(0)[i] = c.Tick.FutureColor
 		} else {
-			// fade linearly between off and on color
-			ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
+			if c.Tick.PresentColor == 0 {
+				dev.Leds(0)[i] = c.Tick.PresentColor
+			} else {
+				// fade linearly between off and on color
+				ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
 
-			ru8, gu8, bu8 := hexToRGB(c.Tick.OnColor)
-			r := ftick * float64(ru8)
-			g := ftick * float64(gu8)
-			b := ftick * float64(bu8)
+				ru8, gu8, bu8 := hexToRGB(c.Tick.FutureColor)
+				r := ftick * float64(ru8)
+				g := ftick * float64(gu8)
+				b := ftick * float64(bu8)
 
-			oru8, ogu8, obu8 := hexToRGB(c.Tick.OffColor)
-			or := (1 - ftick) * float64(oru8)
-			og := (1 - ftick) * float64(ogu8)
-			ob := (1 - ftick) * float64(obu8)
+				oru8, ogu8, obu8 := hexToRGB(c.Tick.PastColor)
+				or := (1 - ftick) * float64(oru8)
+				og := (1 - ftick) * float64(ogu8)
+				ob := (1 - ftick) * float64(obu8)
 
-			dev.Leds(0)[i] = rgbToHex(uint8(r+or), uint8(g+og), uint8(b+ob))
+				dev.Leds(0)[i] = rgbToHex(uint8(r+or), uint8(g+og), uint8(b+ob))
+			}
+
 		}
 	}
 
@@ -58,30 +63,29 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 	// assume: same number of leds as ticks,
 	// assume: numbers follow ticks
 	// assume: reverse order
+	start := numTickLeds + c.Gap
+	end := start
 	for i := numTickLeds; i < numTickLeds*2; i++ {
 		if i < int(htick)+numTickLeds {
 			dev.Leds(0)[i+c.Gap] = c.Num.PastColor
 		} else if i > int(htick)+numTickLeds {
 			dev.Leds(0)[i+c.Gap] = c.Num.FutureColor
+			end = i + c.Gap
 		} else {
 			for j := i; j < i+c.Tick.TicksPerHour; j++ {
-				dev.Leds(0)[j+c.Gap] = c.Num.CurrentColor
+				dev.Leds(0)[j+c.Gap] = c.Num.PresentColor
 			}
 			i = i + c.Tick.TicksPerHour - 1
 		}
 	}
-	reverseSecondHalf(dev.Leds(0))
+	reversePart(dev.Leds(0), start, end+1)
 
 	return dev.Render()
 }
 
-func reverseSecondHalf(s []uint32) {
-	mid := len(s) / 2
-	end := len(s) - 1
-
-	for i := mid; i < end; i++ {
-		s[i], s[end] = s[end], s[i]
-		end--
+func reversePart(slice []uint32, start, end int) {
+	for i, j := start, end-1; i < j; i, j = i+1, j-1 {
+		slice[i], slice[j] = slice[j], slice[i]
 	}
 }
 

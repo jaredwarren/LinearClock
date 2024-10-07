@@ -7,7 +7,6 @@ import (
 )
 
 type Config struct {
-	DisplayMode string
 	// general
 	Brightness  int
 	RefreshRate time.Duration
@@ -17,12 +16,16 @@ type Config struct {
 
 	// numbers
 	Gap int // number of leds between ticks and numbers
+
+	// V2
+	DisplayMode string
 }
 
 // TickConfig ...
 type TickConfig struct {
-	OnColor      uint32
-	OffColor     uint32
+	PastColor    uint32
+	PresentColor uint32
+	FutureColor  uint32
 	StartHour    int // 24h time
 	StartLed     int
 	TicksPerHour int
@@ -35,9 +38,9 @@ type TickConfig struct {
 
 // NumConfig ...
 type NumConfig struct {
-	FutureColor  uint32
-	CurrentColor uint32
 	PastColor    uint32
+	PresentColor uint32
+	FutureColor  uint32
 	// V2 config features to add
 	Reverse bool   // increment up or down with time
 	Mode    string // "count down", "count up", "time", etc

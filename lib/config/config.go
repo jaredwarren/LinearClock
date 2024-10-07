@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/gob"
+	"fmt"
 	"os"
 	"time"
 )
@@ -21,8 +22,9 @@ type Config struct {
 
 // TickConfig ...
 type TickConfig struct {
-	OnColor      uint32
-	OffColor     uint32
+	PastColor    uint32
+	PresentColor uint32
+	FutureColor  uint32
 	StartHour    int // 24h time
 	StartLed     int
 	TicksPerHour int
@@ -35,32 +37,42 @@ type TickConfig struct {
 
 // NumConfig ...
 type NumConfig struct {
-	FutureColor  uint32
-	CurrentColor uint32
 	PastColor    uint32
+	PresentColor uint32
+	FutureColor  uint32
 	// V2 config features to add
 	Reverse bool   // increment up or down with time
 	Mode    string // "count down", "count up", "time", etc
 }
 
 func ReadConfig(filepath string) (*Config, error) {
-	// Open the file for reading
 	file, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	// Create a new decoder
 	decoder := gob.NewDecoder(file)
-
-	// Decode the data
 	var config Config
 	err = decoder.Decode(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	// Print the decoded data
 	return &config, nil
+}
+
+func WriteConfig(filepath string, c *Config) error {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return fmt.Errorf("open file %s - %w", filepath, err)
+	}
+	defer file.Close()
+
+	enc := gob.NewEncoder(file)
+	err = enc.Encode(c)
+	if err != nil {
+		return fmt.Errorf("encode config %s - %w", filepath, err)
+	}
+	return nil
 }
