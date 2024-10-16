@@ -80,6 +80,8 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 	}
 	reversePart(dev.Leds(0), start, end+1)
 
+	// TODO: add override here for specific times
+
 	return dev.Render()
 }
 

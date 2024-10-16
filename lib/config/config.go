@@ -45,6 +45,26 @@ type NumConfig struct {
 	Mode    string // "count down", "count up", "time", etc
 }
 
+var DefaultConfig = &Config{
+	RefreshRate: 1 * time.Minute,
+	Brightness:  128,
+	Tick: TickConfig{
+		FutureColor:  0x00ff00,
+		PastColor:    0xFF0000,
+		StartHour:    8, // for testing set to curren thour or lower
+		StartLed:     1,
+		Reverse:      false,
+		TicksPerHour: 4,
+		NumHours:     6,
+	},
+	Num: NumConfig{
+		PastColor:    0xffff00,
+		FutureColor:  0x00ffff,
+		PresentColor: 0xff00ff,
+	},
+	Gap: 4,
+}
+
 func ReadConfig(filepath string) (*Config, error) {
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -63,9 +83,10 @@ func ReadConfig(filepath string) (*Config, error) {
 }
 
 func WriteConfig(filepath string, c *Config) error {
-	file, err := os.Open(filepath)
+	// File does not exist, create it
+	file, err := os.Create(filepath)
 	if err != nil {
-		return fmt.Errorf("open file %s - %w", filepath, err)
+		panic(err)
 	}
 	defer file.Close()
 

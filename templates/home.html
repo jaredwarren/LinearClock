@@ -1,185 +1,232 @@
-<!DOCTYPE html>
-<html lang="en">
+{{template "base" .}}
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Bootstrap demo</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
-    <!-- <link rel="stylesheet" href="styles.css" /> -->
-</head>
+{{define "title"}}Clock Config{{end}}
 
-<body>
-    <!-- <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">Navbar</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
-                aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="#">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Link</a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            Dropdown
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                            <li><a class="dropdown-item" href="#">Action</a></li>
-                            <li><a class="dropdown-item" href="#">Another action</a></li>
-                            <li>
-                                <hr class="dropdown-divider" />
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="#">Something else here</a>
-                            </li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link disabled">Disabled</a>
-                    </li>
-                </ul>
-                <form class="d-flex" role="search">
-                    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" />
-                    <button class="btn btn-outline-success" type="submit">
-                        Search
+{{define "main"}}
+<div class="container my-5">
+    <form action="/config" method="POST">
+
+        <div class="accordion" id="accordionExample">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        Basic Config
                     </button>
-                </form>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <div class="mb-3">
+                            <label for="exampleInputEmail1" class="form-label">Birghtness</label>
+                            <input type="range" name="brightness" id="brightness" class="form-control form-range slider"
+                                min="1" max="255" value="{{.Brightness}}" />
+                            <div id="emailHelp" class="form-text">
+                                Requires restart
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputRefresh" class="col-form-label">Refresh Rate</label>
+                            </div>
+                            <div class="col-auto">
+                                <input  value="{{TimeNum .RefreshRate}}" type="number" name="refresh-rate" min="0" max="15" id="inputRefreshRate"
+                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            </div>
+                            <div class="col-auto">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    1-15 Minutes
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                        Tick Options
+                    </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputTickPastColor" class="col-form-label">Past Color</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{ColorString .Tick.PastColor}}" name="tick.past-color" type="color"
+                                    style="width: 100px;" id="inputTickPastColor" class="form-control"
+                                    aria-describedby="tickPastColorHelpInline">
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputTickPresentColor" class="col-form-label">Present Color</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{ColorString .Tick.PresentColor}}" name="tick.present-color" type="color"
+                                    style="width: 100px;" id="inputTickPresentColor" class="form-control"
+                                    aria-describedby="tickPresentColorHelpInline">
+                            </div>
+                            <div class="col-auto">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    Black = fade between past and future
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputTickFutureColor" class="col-form-label">Future Color</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{ColorString .Tick.FutureColor}}" name="tick.future-color" type="color"
+                                    style="width: 100px;" id="inputTickFutureColor" class="form-control"
+                                    aria-describedby="tickFutureColorHelpInline">
+                            </div>
+                            <div class="col-auto">
+                            </div>
+                        </div>
+                        <span id="tickFutureColorHelpInline" class="form-text"></span>
+                        Default Black = off
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                        Number LEDs
+                    </button>
+                </h2>
+                <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputNumPastColor" class="col-form-label">Past Color</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{ColorString .Num.PastColor}}" name="num.past-color" type="color" 
+                                    style="width: 100px;" id="inputNumPastColor" class="form-control"
+                                    aria-describedby="numPastColorHelpInline">
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputNumPresentColor" class="col-form-label">Present Color</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{ColorString .Num.PresentColor}}" name="num.present-color" type="color" 
+                                    style="width: 100px;" id="inputNumPresentColor" class="form-control"
+                                    aria-describedby="numPresentColorHelpInline">
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputNumFutureColor" class="col-form-label">Future Color</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{ColorString .Num.FutureColor}}" name="num.future-color" type="color" 
+                                    style="width: 100px;" id="inputNumFutureColor" class="form-control"
+                                    aria-describedby="numFutureColorHelpInline">
+                            </div>
+                        </div>
+                        <span id="tickFutureColorHelpInline" class="form-text"></span>
+                        Default Black = off
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                        Advanced
+                    </button>
+                </h2>
+                <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputRefresh" class="col-form-label">Start Hour</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{.Tick.StartHour}}" type="number" name="tick.start-hour" min="0" max="23" step="1" id="inputRefreshRate"
+                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            </div>
+                            <div class="col-auto">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    0-23 hour
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputRefresh" class="col-form-label">Start LED</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{.Tick.StartLed}}" type="number" name="tick.start-led" min="0" max="60" id="inputRefreshRate"
+                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            </div>
+                            <!-- <div class="col-auto">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    Minutes
+                                </span>
+                            </div> -->
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputRefresh" class="col-form-label">Ticks Per Hour</label>
+                            </div>
+                            <div class="col-auto">
+                                <input  value="{{.Tick.TicksPerHour}}"type="number" name="tick.ticks-per-hour" min="0" max="60" id="inputRefreshRate"
+                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            </div>
+                            <!-- <div class="col-auto">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    Minutes
+                                </span>
+                            </div> -->
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputRefresh" class="col-form-label">Num Hours</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{.Tick.NumHours}}" type="number" name="tick.num-hours" min="1" max="24" id="inputRefreshRate"
+                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            </div>
+                            <div class="col-auto">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    1-24 hours
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-auto">
+                                <label for="inputRefresh" class="col-form-label">Gap</label>
+                            </div>
+                            <div class="col-auto">
+                                <input value="{{.Gap}}" type="number" name="gap" min="1" max="100" id="inputRefreshRate"
+                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            </div>
+                            <div class="col-auto">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    num leds between ticks and nums
+                                </span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
             </div>
         </div>
-    </nav> -->
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
 
-    <div class="container my-5">
-        <form action="/config" method="POST">
-            <div class="mb-3">
-                <label for="exampleInputEmail1" class="form-label">Birghtness</label>
-                <input type="range" name="brightness" id="brightness" class="form-control form-range slider" min="1"
-                    max="255" value="128" />
-                <div id="emailHelp" class="form-text">
-                    Requires restart
-                </div>
-            </div>
-            <div class="row g-3 align-items-center">
-                <div class="col-auto">
-                    <label for="inputRefresh" class="col-form-label">Refresh Rate</label>
-                </div>
-                <div class="col-auto">
-                    <input type="number" name="refresh-rate" min="0" max="60" id="inputRefreshRate" class="form-control"
-                        aria-describedby="refreshRateHelpInline">
-                </div>
-                <div class="col-auto">
-                    <span id="refreshRateHelpInline" class="form-text">
-                        Minutes
-                    </span>
-                </div>
-            </div>
-            <hr>
-            <fieldset>
-                <legend>Tick LEDs</legend>
-                <div class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="inputTickPastColor" class="col-form-label">Past Color</label>
-                    </div>
-                    <div class="col-auto">
-                        <input type="color" name="tick.past-color" style="width: 100px;" id="inputTickPastColor"
-                            class="form-control" aria-describedby="tickPastColorHelpInline">
-                    </div>
-                    <div class="col-auto">
-                        <span id="tickPastColorHelpInline" class="form-text">
-                            Default Black = off
-                        </span>
-                    </div>
-                </div>
-                <div class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="inputTickPresentColor" class="col-form-label">Present Color</label>
-                    </div>
-                    <div class="col-auto">
-                        <input type="color" name="tick.present-color" style="width: 100px;" id="inputTickPresentColor"
-                            class="form-control" aria-describedby="tickPresentColorHelpInline">
-                    </div>
-                    <div class="col-auto">
-                        <span id="tickPresentColorHelpInline" class="form-text">
-                            Default Black = off
-                        </span>
-                    </div>
-                </div>
-                <div class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="inputTickFutureColor" class="col-form-label">Future Color</label>
-                    </div>
-                    <div class="col-auto">
-                        <input type="color" name="tick.future-color" style="width: 100px;" id="inputTickFutureColor"
-                            class="form-control" aria-describedby="tickFutureColorHelpInline">
-                    </div>
-                    <div class="col-auto">
-                        <span id="tickFutureColorHelpInline" class="form-text">
-                            Default Black = off
-                        </span>
-                    </div>
-                </div>
-            </fieldset>
-            <hr>
-            <fieldset>
-                <legend>Number LEDs</legend>
-                <div class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="inputNumPastColor" class="col-form-label">Past Color</label>
-                    </div>
-                    <div class="col-auto">
-                        <input type="color" name="num.past-color" style="width: 100px;" id="inputNumPastColor"
-                            class="form-control" aria-describedby="numPastColorHelpInline">
-                    </div>
-                    <div class="col-auto">
-                        <span id="numPastColorHelpInline" class="form-text">
-                            Default Black = off
-                        </span>
-                    </div>
-                </div>
-                <div class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="inputNumPresentColor" class="col-form-label">Present Color</label>
-                    </div>
-                    <div class="col-auto">
-                        <input type="color" name="num.present-color" style="width: 100px;" id="inputNumPresentColor"
-                            class="form-control" aria-describedby="numPresentColorHelpInline">
-                    </div>
-                    <div class="col-auto">
-                        <span id="numPresentColorHelpInline" class="form-text">
-                            Default Black = off
-                        </span>
-                    </div>
-                </div>
-                <div class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="inputNumFutureColor" class="col-form-label">Future Color</label>
-                    </div>
-                    <div class="col-auto">
-                        <input type="color" name="num.future-color" style="width: 100px;" id="inputNumFutureColor"
-                            class="form-control" aria-describedby="numFutureColorHelpInline">
-                    </div>
-                    <div class="col-auto">
-                        <span id="numFutureColorHelpInline" class="form-text">
-                            Default Black = off
-                        </span>
-                    </div>
-                </div>
-            </fieldset>
-            <button type="submit" class="btn btn-primary">Save</button>
-        </form>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
-        crossorigin="anonymous"></script>
-</body>
-
-</html>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+    crossorigin="anonymous"></script>
+{{end}}
