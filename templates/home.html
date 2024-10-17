@@ -2,10 +2,30 @@
 
 {{define "title"}}Clock Config{{end}}
 
+{{define "nav"}}
+<div class="container-fluid">
+    <ul class="nav nav-pills">
+        <li class="nav-item">
+            <a class="nav-link disabled" href="#"><span
+                    class="material-symbols-outlined align-middle">settings</span> <span>Config</span></a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/events"><span class="material-symbols-outlined align-middle">
+                date_range
+            </span>
+                <span>Event</span></a>
+        </li>
+        <!-- <li class="nav-item">
+            <a class="nav-link" href="/config"><span class="material-symbols-outlined align-middle">settings</span>
+                <span class="align-middle"></span></a>
+        </li> -->
+    </ul>
+</div>
+{{end}}
+
 {{define "main"}}
 <div class="container my-5">
     <form action="/config" method="POST">
-
         <div class="accordion" id="accordionExample">
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -25,14 +45,15 @@
                             </div>
                         </div>
                         <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                            <div class="col">
                                 <label for="inputRefresh" class="col-form-label">Refresh Rate</label>
                             </div>
-                            <div class="col-auto">
-                                <input  value="{{TimeNum .RefreshRate}}" type="number" name="refresh-rate" min="0" max="15" id="inputRefreshRate"
-                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            <div class="col">
+                                <input value="{{TimeNum .RefreshRate}}" type="number" name="refresh-rate" min="0"
+                                    max="15" id="inputRefreshRate" class="form-control"
+                                    aria-describedby="refreshRateHelpInline">
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
                                     1-15 Minutes
                                 </span>
@@ -51,45 +72,50 @@
                 <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
                     <div class="accordion-body">
                         <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                            <div class="col">
                                 <label for="inputTickPastColor" class="col-form-label">Past Color</label>
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <input value="{{ColorString .Tick.PastColor}}" name="tick.past-color" type="color"
                                     style="width: 100px;" id="inputTickPastColor" class="form-control"
                                     aria-describedby="tickPastColorHelpInline">
                             </div>
-                        </div>
-                        <div class="row g-3 align-items-center">
-                            <div class="col-auto">
-                                <label for="inputTickPresentColor" class="col-form-label">Present Color</label>
-                            </div>
-                            <div class="col-auto">
-                                <input value="{{ColorString .Tick.PresentColor}}" name="tick.present-color" type="color"
-                                    style="width: 100px;" id="inputTickPresentColor" class="form-control"
-                                    aria-describedby="tickPresentColorHelpInline">
-                            </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
-                                    Black = fade between past and future
+                                    black = off
                                 </span>
                             </div>
                         </div>
                         <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                            <div class="col">
+                                <label for="inputTickPresentColor" class="col-form-label">Present Color</label>
+                            </div>
+                            <div class="col">
+                                <input value="{{ColorString .Tick.PresentColor}}" name="tick.present-color" type="color"
+                                    style="width: 100px;" id="inputTickPresentColor" class="form-control"
+                                    aria-describedby="tickPresentColorHelpInline">
+                            </div>
+                            <div class="col">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    black = fade
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col">
                                 <label for="inputTickFutureColor" class="col-form-label">Future Color</label>
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <input value="{{ColorString .Tick.FutureColor}}" name="tick.future-color" type="color"
                                     style="width: 100px;" id="inputTickFutureColor" class="form-control"
                                     aria-describedby="tickFutureColorHelpInline">
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    black = off
+                                </span>
                             </div>
                         </div>
-                        <span id="tickFutureColorHelpInline" class="form-text"></span>
-                        Default Black = off
-                        </span>
                     </div>
                 </div>
             </div>
@@ -103,38 +129,50 @@
                 <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
                     <div class="accordion-body">
                         <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                            <div class="col">
                                 <label for="inputNumPastColor" class="col-form-label">Past Color</label>
                             </div>
-                            <div class="col-auto">
-                                <input value="{{ColorString .Num.PastColor}}" name="num.past-color" type="color" 
+                            <div class="col">
+                                <input value="{{ColorString .Num.PastColor}}" name="num.past-color" type="color"
                                     style="width: 100px;" id="inputNumPastColor" class="form-control"
                                     aria-describedby="numPastColorHelpInline">
                             </div>
+                            <div class="col">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    black = off
+                                </span>
+                            </div>
                         </div>
                         <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                            <div class="col">
                                 <label for="inputNumPresentColor" class="col-form-label">Present Color</label>
                             </div>
-                            <div class="col-auto">
-                                <input value="{{ColorString .Num.PresentColor}}" name="num.present-color" type="color" 
+                            <div class="col">
+                                <input value="{{ColorString .Num.PresentColor}}" name="num.present-color" type="color"
                                     style="width: 100px;" id="inputNumPresentColor" class="form-control"
                                     aria-describedby="numPresentColorHelpInline">
                             </div>
+                            <div class="col">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    black = off
+                                </span>
+                            </div>
                         </div>
-                        <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                        <div class="row g-3 align-items-left">
+                            <div class="col">
                                 <label for="inputNumFutureColor" class="col-form-label">Future Color</label>
                             </div>
-                            <div class="col-auto">
-                                <input value="{{ColorString .Num.FutureColor}}" name="num.future-color" type="color" 
+                            <div class="col">
+                                <input value="{{ColorString .Num.FutureColor}}" name="num.future-color" type="color"
                                     style="width: 100px;" id="inputNumFutureColor" class="form-control"
                                     aria-describedby="numFutureColorHelpInline">
                             </div>
+                            <div class="col">
+                                <span id="refreshRateHelpInline" class="form-text">
+                                    black = off
+                                </span>
+                            </div>
                         </div>
-                        <span id="tickFutureColorHelpInline" class="form-text"></span>
-                        Default Black = off
-                        </span>
                     </div>
                 </div>
             </div>
@@ -147,73 +185,75 @@
                 </h2>
                 <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
                     <div class="accordion-body">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                        <div class="row mb-3 align-items-center">
+                            <div class="col">
                                 <label for="inputRefresh" class="col-form-label">Start Hour</label>
                             </div>
-                            <div class="col-auto">
-                                <input value="{{.Tick.StartHour}}" type="number" name="tick.start-hour" min="0" max="23" step="1" id="inputRefreshRate"
-                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            <div class="col">
+                                <input value="{{.Tick.StartHour}}" type="number" name="tick.start-hour" min="0" max="23"
+                                    step="1" id="inputRefreshRate" class="form-control"
+                                    aria-describedby="refreshRateHelpInline">
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
                                     0-23 hour
                                 </span>
                             </div>
                         </div>
-                        <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                        <div class="row mb-3 align-items-center">
+                            <div class="col">
                                 <label for="inputRefresh" class="col-form-label">Start LED</label>
                             </div>
-                            <div class="col-auto">
-                                <input value="{{.Tick.StartLed}}" type="number" name="tick.start-led" min="0" max="60" id="inputRefreshRate"
-                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            <div class="col">
+                                <input value="{{.Tick.StartLed}}" type="number" name="tick.start-led" min="0" max="60"
+                                    id="inputRefreshRate" class="form-control" aria-describedby="refreshRateHelpInline">
                             </div>
-                            <!-- <div class="col-auto">
+                            <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
-                                    Minutes
+                                    &nbsp;
                                 </span>
-                            </div> -->
+                            </div>
                         </div>
-                        <div class="row g-3 align-items-center">
-                            <div class="col-auto">
-                                <label for="inputRefresh" class="col-form-label">Ticks Per Hour</label>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col">
+                                <label for="inputRefresh" class="col-form-label">Ticks / Hour</label>
                             </div>
-                            <div class="col-auto">
-                                <input  value="{{.Tick.TicksPerHour}}"type="number" name="tick.ticks-per-hour" min="0" max="60" id="inputRefreshRate"
-                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            <div class="col">
+                                <input value="{{.Tick.TicksPerHour}}" type="number" name="tick.ticks-per-hour" min="0"
+                                    max="60" id="inputRefreshRate" class="form-control"
+                                    aria-describedby="refreshRateHelpInline">
                             </div>
-                            <!-- <div class="col-auto">
+                            <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
-                                    Minutes
+                                    &nbsp;
                                 </span>
-                            </div> -->
+                            </div>
                         </div>
-                        <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                        <div class="row mb-3 align-items-center">
+                            <div class="col">
                                 <label for="inputRefresh" class="col-form-label">Num Hours</label>
                             </div>
-                            <div class="col-auto">
-                                <input value="{{.Tick.NumHours}}" type="number" name="tick.num-hours" min="1" max="24" id="inputRefreshRate"
-                                    class="form-control" aria-describedby="refreshRateHelpInline">
+                            <div class="col">
+                                <input value="{{.Tick.NumHours}}" type="number" name="tick.num-hours" min="1" max="24"
+                                    id="inputRefreshRate" class="form-control" aria-describedby="refreshRateHelpInline">
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
                                     1-24 hours
                                 </span>
                             </div>
                         </div>
-                        <div class="row g-3 align-items-center">
-                            <div class="col-auto">
+                        <div class="row mb-3 align-items-center">
+                            <div class="col">
                                 <label for="inputRefresh" class="col-form-label">Gap</label>
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <input value="{{.Gap}}" type="number" name="gap" min="1" max="100" id="inputRefreshRate"
                                     class="form-control" aria-describedby="refreshRateHelpInline">
                             </div>
-                            <div class="col-auto">
+                            <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
-                                    num leds between ticks and nums
+                                    # leds b/t ticks and nums
                                 </span>
                             </div>
                         </div>
@@ -222,7 +262,10 @@
                 </div>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">Save</button>
+        <hr>
+        <div class="row g-3 align-items-center">
+            <button type="submit" class="btn btn-primary ">Save</button>
+        </div>
     </form>
 </div>
 

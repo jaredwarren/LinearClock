@@ -12,6 +12,8 @@ func main() {
 
 	s := server.NewServer()
 	http.HandleFunc("GET /", s.Home)
+	http.HandleFunc("GET /events", s.ListEvents)
+	http.HandleFunc("POST /events", s.UpdateEvents)
 	http.HandleFunc("POST /config", s.UpdateConfig)
 
 	fmt.Println("Server listening on :8080")
