@@ -37,7 +37,7 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 			// Turn On tick
 			dev.Leds(0)[i] = c.Tick.FutureColor
 		} else {
-			if c.Tick.PresentColor == 0 {
+			if c.Tick.PresentColor != 0 {
 				dev.Leds(0)[i] = c.Tick.PresentColor
 			} else {
 				// fade linearly between off and on color
@@ -55,7 +55,6 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 
 				dev.Leds(0)[i] = rgbToHex(uint8(r+or), uint8(g+og), uint8(b+ob))
 			}
-
 		}
 	}
 
@@ -82,7 +81,22 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 
 	// TODO: add override here for specific times
 
+	applyBrightness(dev.Leds(0), c.Brightness)
+
 	return dev.Render()
+}
+
+func applyBrightness(leds []uint32, br int) {
+	var f float64
+	if br < 256 && br > 0 {
+		f = float64(br) / 256
+	} else if br >= 256 {
+		f = 1
+	}
+	for i, l := range leds {
+		r, g, b := hexToRGB(l)
+		leds[i] = rgbToHex(uint8(float64(r)*f), uint8(float64(g)*f), uint8(float64(b)*f))
+	}
 }
 
 func reversePart(slice []uint32, start, end int) {

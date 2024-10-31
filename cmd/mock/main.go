@@ -12,6 +12,7 @@ import (
 )
 
 var DefaultConfig = &config.Config{
+	Brightness:  300,
 	RefreshRate: 1 * time.Minute,
 	Tick: config.TickConfig{
 		FutureColor:  0x00ff00,

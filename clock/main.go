@@ -15,22 +15,23 @@ const ConfigFile = "config.gob"
 
 var DefaultConfig = &config.Config{
 	RefreshRate: 1 * time.Minute,
-	Brightness:  128,
+	Brightness:  64,
 	Tick: config.TickConfig{
 		FutureColor:  0x00ff00,
 		PastColor:    0xFF0000,
-		StartHour:    8, // for testing set to curren thour or lower
-		StartLed:     1,
+		PresentColor: 0,
+		StartHour:    6, // for testing set to curren thour or lower
+		StartLed:     0,
 		Reverse:      false,
 		TicksPerHour: 4,
-		NumHours:     6,
+		NumHours:     18,
 	},
 	Num: config.NumConfig{
 		PastColor:    0xff0000,
 		FutureColor:  0x00ff00,
 		PresentColor: 0x0000ff,
 	},
-	Gap: 73 - 8,
+	Gap: 0,
 }
 
 func NewLedDisplay(c *config.Config) (*ws2811.WS2811, error) {

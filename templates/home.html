@@ -10,6 +10,12 @@
                     class="material-symbols-outlined align-middle">settings</span> <span>Config</span></a>
         </li>
         <li class="nav-item">
+            <a class="nav-link" href="/test"><span class="material-symbols-outlined align-middle">
+                    test
+                </span>
+                <span>Test</span></a>
+        </li>
+        <li class="nav-item">
             <a class="nav-link" href="/events"><span class="material-symbols-outlined align-middle">
                 date_range
             </span>
@@ -248,7 +254,7 @@
                                 <label for="inputRefresh" class="col-form-label">Gap</label>
                             </div>
                             <div class="col">
-                                <input value="{{.Gap}}" type="number" name="gap" min="1" max="100" id="inputRefreshRate"
+                                <input value="{{.Gap}}" type="number" name="gap" min="0" max="100" id="inputRefreshRate"
                                     class="form-control" aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
