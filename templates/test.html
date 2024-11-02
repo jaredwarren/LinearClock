@@ -29,7 +29,7 @@
     <table>
         <tr>
             {{range $index, $n := .Nums}}
-                <td colspan="4" class="num-tick" style="background-color: {{$n}};">{{$index}}</td>
+                <td colspan="4" class="num-tick" style="background-color: {{$n.Color}};">{{$n.Hour}}</td>
             {{end}}
         </tr>
         <tr>

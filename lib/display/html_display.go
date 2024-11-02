@@ -36,13 +36,18 @@ func (m *HTMLDisplay) Leds(channel int) []uint32 {
 }
 
 type Data struct {
-	Nums  []string
+	Nums  []Num // TOOD: change to struct, so I can add the hour. map doesn't work because order.
 	Ticks []string
+}
+
+type Num struct {
+	Hour  string
+	Color string
 }
 
 func (m *HTMLDisplay) Render() error {
 	data := &Data{
-		Nums:  []string{},
+		Nums:  []Num{},
 		Ticks: []string{},
 	}
 
@@ -56,13 +61,24 @@ func (m *HTMLDisplay) Render() error {
 	}
 	numbers := m.leds[len(m.leds)/2:]
 
-	// everything is recversed
+	// everything is reversed
+	j := 0
 	for i := len(numbers) - 1; i >= 0; i = i - 4 {
 		led := numbers[i]
 		r := uint8(led >> 16)
 		g := uint8(led >> 8)
 		b := uint8(led)
-		data.Nums = append(data.Nums, fmt.Sprintf("#%x", rgbToHex(r, g, b)))
+
+		hour := j + m.c.Tick.StartHour
+		if hour > 12 {
+			hour = hour - 12
+		}
+
+		data.Nums = append(data.Nums, Num{
+			Hour:  fmt.Sprintf("%d", hour),
+			Color: fmt.Sprintf("#%x", rgbToHex(r, g, b)),
+		})
+		j++
 	}
 
 	files := []string{
@@ -70,8 +86,9 @@ func (m *HTMLDisplay) Render() error {
 		"templates/layout.html",
 	}
 	tmpl, err := template.New("base").Funcs(template.FuncMap{
-		// "ColorString": ColorString,
-		// "TimeNum":     TimeNum,
+		"add": func(i, j int) int {
+			return i + j
+		},
 	}).ParseFiles(files...)
 	if err != nil {
 		fmt.Fprintf(m.w, "parse template error:%+v", err)
