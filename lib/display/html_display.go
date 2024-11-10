@@ -57,7 +57,7 @@ func (m *HTMLDisplay) Render() error {
 		g := uint8(led >> 8)
 		b := uint8(led)
 
-		data.Ticks = append(data.Ticks, fmt.Sprintf("#%x", rgbToHex(r, g, b)))
+		data.Ticks = append(data.Ticks, fmt.Sprintf("#%02X%02X%02X", r, g, b))
 	}
 	numbers := m.leds[len(m.leds)/2:]
 
@@ -76,7 +76,7 @@ func (m *HTMLDisplay) Render() error {
 
 		data.Nums = append(data.Nums, Num{
 			Hour:  fmt.Sprintf("%d", hour),
-			Color: fmt.Sprintf("#%x", rgbToHex(r, g, b)),
+			Color: fmt.Sprintf("#%02X%02X%02X", r, g, b),
 		})
 		j++
 	}

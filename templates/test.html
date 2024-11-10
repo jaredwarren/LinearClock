@@ -9,12 +9,12 @@
             <a class="nav-link" href="/"><span
                     class="material-symbols-outlined align-middle">settings</span> <span>Config</span></a>
         </li>
-        <li class="nav-item">
+        <!-- <li class="nav-item">
             <a class="nav-link" href="/events"><span class="material-symbols-outlined align-middle">
                 date_range
             </span>
                 <span>Event</span></a>
-        </li>
+        </li> -->
     </ul>
 </div>
 {{end}}
@@ -24,12 +24,15 @@
         .num-tick{
             border: 1px solid lightgray;
             text-align: center;
+            background-color: blue;
+            height: 42px;
+            font-weight: bold;
         }
     </style>
     <table>
         <tr>
             {{range $index, $n := .Nums}}
-                <td colspan="4" class="num-tick" style="background-color: {{$n.Color}};">{{$n.Hour}}</td>
+                <td colspan="4" class="num-tick" style="color: {{$n.Color}};">{{$n.Hour}}</td>
             {{end}}
         </tr>
         <tr>

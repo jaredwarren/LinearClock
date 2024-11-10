@@ -11,16 +11,16 @@
         </li>
         <li class="nav-item">
             <a class="nav-link" href="/test"><span class="material-symbols-outlined align-middle">
-                    test
+                    preview
                 </span>
-                <span>Test</span></a>
+                <span>Preview</span></a>
         </li>
-        <li class="nav-item">
+        <!-- <li class="nav-item">
             <a class="nav-link" href="/events"><span class="material-symbols-outlined align-middle">
                 date_range
             </span>
                 <span>Event</span></a>
-        </li>
+        </li> -->
         <!-- <li class="nav-item">
             <a class="nav-link" href="/config"><span class="material-symbols-outlined align-middle">settings</span>
                 <span class="align-middle"></span></a>
@@ -55,13 +55,13 @@
                                 <label for="inputRefresh" class="col-form-label">Refresh Rate</label>
                             </div>
                             <div class="col">
-                                <input value="{{TimeNum .RefreshRate}}" type="number" name="refresh-rate" min="0"
+                                <input value="{{TimeNum .RefreshRate}}" type="number" name="refresh-rate" min="0.01667"
                                     max="15" id="inputRefreshRate" class="form-control"
                                     aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
-                                    1-15 Minutes
+                                    minutes 0.01667 (1 sec) - 15 Minutes
                                 </span>
                             </div>
                         </div>
@@ -193,11 +193,11 @@
                     <div class="accordion-body">
                         <div class="row mb-3 align-items-center">
                             <div class="col">
-                                <label for="inputRefresh" class="col-form-label">Start Hour</label>
+                                <label for="inputStartHour" class="col-form-label">Start Hour</label>
                             </div>
                             <div class="col">
                                 <input value="{{.Tick.StartHour}}" type="number" name="tick.start-hour" min="0" max="23"
-                                    step="1" id="inputRefreshRate" class="form-control"
+                                    step="1" id="inputStartHour" class="form-control"
                                     aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
@@ -208,11 +208,11 @@
                         </div>
                         <div class="row mb-3 align-items-center">
                             <div class="col">
-                                <label for="inputRefresh" class="col-form-label">Start LED</label>
+                                <label for="inputStartLed" class="col-form-label">Start LED</label>
                             </div>
                             <div class="col">
                                 <input value="{{.Tick.StartLed}}" type="number" name="tick.start-led" min="0" max="60"
-                                    id="inputRefreshRate" class="form-control" aria-describedby="refreshRateHelpInline">
+                                    id="inputStartLed" class="form-control" aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
@@ -222,11 +222,11 @@
                         </div>
                         <div class="row mb-3 align-items-center">
                             <div class="col">
-                                <label for="inputRefresh" class="col-form-label">Ticks / Hour</label>
+                                <label for="inputTicksPerHour" class="col-form-label">Ticks / Hour</label>
                             </div>
                             <div class="col">
                                 <input value="{{.Tick.TicksPerHour}}" type="number" name="tick.ticks-per-hour" min="0"
-                                    max="60" id="inputRefreshRate" class="form-control"
+                                    max="60" id="inputTicksPerHour" class="form-control"
                                     aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
@@ -237,11 +237,11 @@
                         </div>
                         <div class="row mb-3 align-items-center">
                             <div class="col">
-                                <label for="inputRefresh" class="col-form-label">Num Hours</label>
+                                <label for="inputNumHours" class="col-form-label">Num Hours</label>
                             </div>
                             <div class="col">
                                 <input value="{{.Tick.NumHours}}" type="number" name="tick.num-hours" min="1" max="24"
-                                    id="inputRefreshRate" class="form-control" aria-describedby="refreshRateHelpInline">
+                                    id="inputNumHours" class="form-control" aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
@@ -251,10 +251,10 @@
                         </div>
                         <div class="row mb-3 align-items-center">
                             <div class="col">
-                                <label for="inputRefresh" class="col-form-label">Gap</label>
+                                <label for="inputGap" class="col-form-label">Gap</label>
                             </div>
                             <div class="col">
-                                <input value="{{.Gap}}" type="number" name="gap" min="0" max="100" id="inputRefreshRate"
+                                <input value="{{.Gap}}" id="inputGap" type="number" name="gap" min="0" max="100"
                                     class="form-control" aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
