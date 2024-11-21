@@ -5,7 +5,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/jaredwarren/clock/lib/config"
+	"github.com/jaredwarren/clock/clock/config"
 )
 
 type HTMLDisplay struct {

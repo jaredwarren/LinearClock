@@ -55,13 +55,13 @@
                                 <label for="inputRefresh" class="col-form-label">Refresh Rate</label>
                             </div>
                             <div class="col">
-                                <input value="{{TimeNum .RefreshRate}}" type="number" name="refresh-rate" min="0.01667"
-                                    max="15" id="inputRefreshRate" class="form-control"
+                                <input value="{{TimeNum .RefreshRate}}" type="number" name="refresh-rate" min="1"
+                                    max="900" id="inputRefreshRate" class="form-control" step="1"
                                     aria-describedby="refreshRateHelpInline">
                             </div>
                             <div class="col">
                                 <span id="refreshRateHelpInline" class="form-text">
-                                    minutes 0.01667 (1 sec) - 15 Minutes
+                                    seconds 1 - 900 (15 Minutes)
                                 </span>
                             </div>
                         </div>

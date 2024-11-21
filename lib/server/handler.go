@@ -53,7 +53,7 @@ func ColorString(color uint32) string {
 }
 
 func TimeNum(t time.Duration) string {
-	return fmt.Sprintf("%d", int(t.Minutes()))
+	return fmt.Sprintf("%d", int(t.Seconds()))
 }
 
 func errorIsMissing(err error) bool {
@@ -96,11 +96,11 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "convert 'refresh-rate' error (%+v):%+v", i, err)
 			return
 		}
-		if i < 1 || i > 15 {
+		if i < 1 || i > 900 {
 			fmt.Fprintf(w, "invalid 'refresh-rate' error (%+v)", i)
 			return
 		}
-		c.RefreshRate = time.Minute * time.Duration(i)
+		c.RefreshRate = time.Second * time.Duration(i)
 	}
 
 	fmt.Println("Gap:" + r.FormValue("gap"))

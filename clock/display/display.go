@@ -1,7 +1,6 @@
 package display
 
 import (
-	"fmt"
 	"math"
 	"time"
 
@@ -88,14 +87,16 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 }
 
 func applyBrightness(leds []uint32, br int) {
-	f := float64(br) / 256
-	fmt.Println("f:", f)
-	fmt.Println(hexToRGB(leds[0]))
+	var f float64
+	if br < 256 && br > 0 {
+		f = float64(br) / 256
+	} else if br >= 256 {
+		f = 1
+	}
 	for i, l := range leds {
 		r, g, b := hexToRGB(l)
 		leds[i] = rgbToHex(uint8(float64(r)*f), uint8(float64(g)*f), uint8(float64(b)*f))
 	}
-	fmt.Println(hexToRGB(leds[0]))
 }
 
 func reversePart(slice []uint32, start, end int) {
