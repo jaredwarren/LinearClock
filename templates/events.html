@@ -6,8 +6,8 @@
 <div class="container-fluid">
     <ul class="nav nav-pills">
         <li class="nav-item">
-            <a class="nav-link" href="/"><span
-                    class="material-symbols-outlined align-middle">settings</span> <span>Config</span></a>
+            <a class="nav-link" href="/"><span class="material-symbols-outlined align-middle">settings</span>
+                <span>Config</span></a>
         </li>
         <li class="nav-item">
             <a class="nav-link" href="/test"><span class="material-symbols-outlined align-middle">
@@ -17,8 +17,8 @@
         </li>
         <li class="nav-item">
             <a class="nav-link disabled" href="#"><span class="material-symbols-outlined align-middle">
-                date_range
-            </span>
+                    date_range
+                </span>
                 <span>Event</span></a>
         </li>https://google.com
         <!-- <li class="nav-item">
@@ -31,11 +31,54 @@
 
 {{define "main"}}
 <div class="container my-5">
+    <table>
+        {{range $index, $s := .}}
+        <tr>
+            <td>
+                <input value="{{TimeFormat $s.Time}}" readonly type="datetime-local" class="form-control">
+            </td>
+            </td>
+            <td><input value="{{ColorString $s.Color}}" readonly type="color" style="width: 100px;"
+                    class="form-control" ></td>
+            <td>
+            <td>
+                <button onclick="confirm('are you sure')">X</button>
+                TODO: add delete here
+            </td>
+        </tr>
+        {{end}}
+    </table>
+    <hr>
     <form action="/events" method="POST">
-        <hr>
         <div class="row g-3 align-items-center">
-            <button type="submit" class="btn btn-primary ">Save</button>
+            <div class="col">
+                <label for="inputEventColor" class="col-form-label">Color</label>
+            </div>
+            <div class="col">
+                <input name="event.color" type="color" style="width: 100px;" id="inputEventColor"
+                    class="form-control" >
+            </div>
+            <!-- <div class="col">
+                <span id="refreshRateHelpInline" class="form-text">
+                    black = off
+                </span>
+            </div> -->
         </div>
+        <div class="row g-3 align-items-center">
+            <div class="col">
+                <label for="inputEventTime" class="col-form-label">Time</label>
+            </div>
+            <div class="col">
+                <input  name="event.time" type="datetime-local" style="width: 100px;" id="inputEventTime"
+                    class="form-control" aria-describedby="tickPastColorHelpInline">
+            </div>
+            <!-- <div class="col">
+                        <span id="refreshRateHelpInline" class="form-text">
+                            black = off
+                        </span>
+                    </div> -->
+        </div>
+        <button type="submit">+ Add</button>
     </form>
 </div>
 

@@ -56,6 +56,10 @@ func TimeNum(t time.Duration) string {
 	return fmt.Sprintf("%d", int(t.Seconds()))
 }
 
+func TimeFormat(t time.Time) string {
+	return t.Format("2006-01-02T15:04")
+}
+
 func errorIsMissing(err error) bool {
 	return strings.Contains(err.Error(), "no such file or directory")
 }
