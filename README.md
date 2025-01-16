@@ -30,7 +30,7 @@ only once or when updating dockerfile
 `docker buildx build --platform linux/arm/v7 --tag ws2811-builder --file docker/app-builder/Dockerfile .`
 
 ## use image to cross compile app on mac for pi
-`APP=clock`
+`APP=clock`̋̊̋
 `docker run --rm -v "$PWD":/usr/src/$$APP --platform linux/arm/v7 -w /usr/src/$APP ws2811-builder:latest go build -a -o "$APP-armv7" -v`
 
 ### on pi

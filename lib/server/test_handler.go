@@ -20,9 +20,19 @@ func (s *Server) TestHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	hd := display.NewHTMLDisplay(c, w)
+	t := time.Now()
 
-	err = display.DisplayTime(time.Now(), c, hd)
+	to := r.URL.Query().Get("time-override")
+	if to != "" {
+		t, err = time.Parse("15:04", to)
+		if err != nil {
+			fmt.Fprintf(w, "time error:%+v", err)
+			return
+		}
+	}
+
+	hd := display.NewHTMLDisplay(c, w, t)
+	err = display.DisplayTime(t, c, hd)
 	if err != nil {
 		fmt.Fprintf(w, "render error:%+v", err)
 		return

@@ -29,6 +29,12 @@
             font-weight: bold;
         }
     </style>
+    <!-- <input type="time" id="appt" name="appt" min="09:00" max="18:00"  /> -->
+     <form method="get" action="/test">
+         Set Time: <input type="time" id="time-override" name="time-override" value="{{timefmt .CurrentTime}}" />
+         <button type="submit">go</button>
+     </form>
+
     <table>
         <tr>
             {{range $index, $n := .Nums}}

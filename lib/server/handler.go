@@ -190,6 +190,17 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		c.Tick.FutureColor = color
 	}
 
+	fmt.Println("Tick.FutureColorB:" + r.FormValue("tick.future-color-b"))
+	{
+		v := r.FormValue("tick.future-color-b")
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			fmt.Fprintf(w, "convert 'tick.future-color-b' error (%s):%+v", v, err)
+			return
+		}
+		c.Tick.FutureColorB = color
+	}
+
 	fmt.Println("Num.PastColor:" + r.FormValue("num.past-color"))
 	{
 		v := r.FormValue("num.past-color")

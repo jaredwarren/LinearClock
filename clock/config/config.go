@@ -26,7 +26,8 @@ type TickConfig struct {
 	PastColor    uint32
 	PresentColor uint32
 	FutureColor  uint32
-	StartHour    int // 24h time
+	FutureColorB uint32 // alternate every num ticks
+	StartHour    int    // 24h time
 	StartLed     int
 	TicksPerHour int
 	NumHours     int

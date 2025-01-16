@@ -4,22 +4,25 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/jaredwarren/clock/lib/config"
 )
 
 type HTMLDisplay struct {
-	leds []uint32
-	w    http.ResponseWriter
-	c    *config.Config
+	leds        []uint32
+	w           http.ResponseWriter
+	c           *config.Config
+	CurrentTime time.Time
 }
 
-func NewHTMLDisplay(c *config.Config, w http.ResponseWriter) Displayer {
+func NewHTMLDisplay(c *config.Config, w http.ResponseWriter, t time.Time) Displayer {
 	leds := make([]uint32, c.Tick.NumHours*c.Tick.TicksPerHour*2)
 	return &HTMLDisplay{
-		leds: leds,
-		w:    w,
-		c:    c,
+		leds:        leds,
+		w:           w,
+		c:           c,
+		CurrentTime: t,
 	}
 }
 
@@ -36,8 +39,9 @@ func (m *HTMLDisplay) Leds(channel int) []uint32 {
 }
 
 type Data struct {
-	Nums  []Num // TOOD: change to struct, so I can add the hour. map doesn't work because order.
-	Ticks []string
+	Nums        []Num // TOOD: change to struct, so I can add the hour. map doesn't work because order.
+	Ticks       []string
+	CurrentTime time.Time
 }
 
 type Num struct {
@@ -47,8 +51,9 @@ type Num struct {
 
 func (m *HTMLDisplay) Render() error {
 	data := &Data{
-		Nums:  []Num{},
-		Ticks: []string{},
+		Nums:        []Num{},
+		Ticks:       []string{},
+		CurrentTime: m.CurrentTime,
 	}
 
 	ticks := m.leds[:len(m.leds)/2]
@@ -88,6 +93,9 @@ func (m *HTMLDisplay) Render() error {
 	tmpl, err := template.New("base").Funcs(template.FuncMap{
 		"add": func(i, j int) int {
 			return i + j
+		},
+		"timefmt": func(t time.Time) string {
+			return t.Format("15:04")
 		},
 	}).ParseFiles(files...)
 	if err != nil {

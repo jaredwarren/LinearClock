@@ -32,7 +32,6 @@ func (m *MockDisplay) Leds(channel int) []uint32 {
 }
 
 func (m *MockDisplay) Render() error {
-
 	ticks := m.leds[:len(m.leds)/2]
 	for i, led := range ticks {
 		r := int(uint8(led >> 16))

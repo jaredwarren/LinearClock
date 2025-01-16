@@ -29,13 +29,24 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 	lastLed := mtick + htick
 
 	numTickLeds := c.Tick.NumHours * c.Tick.TicksPerHour
+
+	alt := false
+
 	for i := 0; i < numTickLeds; i++ {
+		if i%c.Tick.TicksPerHour == 0 {
+			alt = !alt
+		}
+
 		if i < int(lastLed) {
 			// Turn Off tick
 			dev.Leds(0)[i] = c.Tick.PastColor
 		} else if i > int(lastLed) {
 			// Turn On tick
-			dev.Leds(0)[i] = c.Tick.FutureColor
+			if alt {
+				dev.Leds(0)[i] = c.Tick.FutureColorB
+			} else {
+				dev.Leds(0)[i] = c.Tick.FutureColor
+			}
 		} else {
 			if c.Tick.PresentColor != 0 {
 				dev.Leds(0)[i] = c.Tick.PresentColor
@@ -43,7 +54,14 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 				// fade linearly between off and on color
 				ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
 
-				ru8, gu8, bu8 := hexToRGB(c.Tick.FutureColor)
+				var ru8 uint8
+				var gu8 uint8
+				var bu8 uint8
+				if alt {
+					ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColorB)
+				} else {
+					ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColor)
+				}
 				r := ftick * float64(ru8)
 				g := ftick * float64(gu8)
 				b := ftick * float64(bu8)
@@ -79,7 +97,7 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 	}
 	reversePart(dev.Leds(0), start, end+1)
 
-	// TODO: add override here for specific times
+	// TODO: add override here for specific events
 
 	applyBrightness(dev.Leds(0), c.Brightness)
 
