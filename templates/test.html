@@ -30,9 +30,15 @@
         }
     </style>
     <!-- <input type="time" id="appt" name="appt" min="09:00" max="18:00"  /> -->
+     <!-- TODO: get and set min, max times based on config -->
      <form method="get" action="/test">
-         Set Time: <input type="time" id="time-override" name="time-override" value="{{timefmt .CurrentTime}}" />
-         <button type="submit">go</button>
+        <div class="input-group mb-3">
+            <input type="time" style="max-width: 140px;" class="form-control" id="time-override" name="time-override" value="{{timefmt .CurrentTime}}"  aria-describedby="basic-addon2"/>
+            <div class="input-group-append">
+                <button class="btn btn-primary" type="submit">Set Time</button>
+            </div>
+        </div>
+
      </form>
 
     <table>
