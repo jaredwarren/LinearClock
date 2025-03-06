@@ -4,7 +4,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/jaredwarren/clock/clock/config"
+	"github.com/jaredwarren/clock/lib/config"
+	// lib/config/config.go
 )
 
 type Displayer interface {
