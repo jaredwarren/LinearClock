@@ -5,18 +5,42 @@ Tested on Raspberry Pi Zero 2
 ## Setup
 
 1. Setup headless Pi
+2. MUST BE 32bit!!!
 
 
-2. Setup systemd
+2. Transfer files
+on pi
+ - `mkdir -p /home/pi/go/github.com/jaredwarren/clock`
+
+on mac
+
+`scp config-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/config-armv7`
+`scp clock/clock-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/clock-armv7`
+
+`scp -r templates pi@clock.local:/home/pi/go/github.com/jaredwarren/clock`
+
+
+1. Setup systemd
 ### setup config server
 `sudo nano /lib/systemd/system/config.service`
 paste config.service
+
+or
+
+`rsync --rsync-path="sudo rsync" config.service pi@clock.local:/lib/systemd/system/config.service`
+
+
 
 `sudo systemctl restart config.service` 
 
 ### setup clock
 `sudo nano /lib/systemd/system/clock.service`
 paste clock.service
+
+or
+
+`rsync --rsync-path="sudo rsync" config.service pi@clock.local:/lib/systemd/system/config.service`
+
 
 `sudo systemctl restart clock.service`
 

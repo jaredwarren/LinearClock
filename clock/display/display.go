@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/jaredwarren/clock/lib/config"
+	"github.com/jaredwarren/clock/clock/config"
 	// lib/config/config.go
 )
 
