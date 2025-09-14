@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jaredwarren/clock/clock/config"
-	// lib/config/config.go
 )
 
 type Displayer interface {
@@ -58,11 +57,16 @@ func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
 				var ru8 uint8
 				var gu8 uint8
 				var bu8 uint8
-				if alt {
-					ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColorB)
-				} else {
-					ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColor)
-				}
+
+				// if alt {
+				// 	ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColorB)
+				// } else {
+				// 	ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColor)
+				// }
+
+				// test alturnative color for current tick
+				ru8, gu8, bu8 = hexToRGB(c.Num.PresentColor)
+
 				r := ftick * float64(ru8)
 				g := ftick * float64(gu8)
 				b := ftick * float64(bu8)
