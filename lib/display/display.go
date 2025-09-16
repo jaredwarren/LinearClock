@@ -19,8 +19,6 @@ type Displayer interface {
 	Render() error
 }
 
-// test
-
 // DisplayTime calculates and renders the clock face for a given time.
 // It orchestrates the drawing of tick marks and hour numbers onto the LED strip.
 func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
