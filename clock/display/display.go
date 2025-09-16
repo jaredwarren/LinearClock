@@ -1,3 +1,5 @@
+// DO NOT EDIT. This file is generated from lib/display/display.go. Run 'go generate' to regenerate.
+
 package display
 
 import (
@@ -18,6 +20,8 @@ type Displayer interface {
 	// Render sends the current LED state to the physical device.
 	Render() error
 }
+
+// test
 
 // DisplayTime calculates and renders the clock face for a given time.
 // It orchestrates the drawing of tick marks and hour numbers onto the LED strip.
