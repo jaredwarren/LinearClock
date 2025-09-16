@@ -29,6 +29,3 @@ ENV GOPROXY=direct
 WORKDIR /go/src/rpi-ws281x-go
 
 COPY . ./
-# COPY go.mod .
-# COPY go.sum .
-# COPY *.go ./

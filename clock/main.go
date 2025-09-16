@@ -1,9 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"flag"
+	"log"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jaredwarren/clock/clock/config"
@@ -11,7 +14,8 @@ import (
 	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
 )
 
-const ConfigFile = "config.gob"
+// DefaultConfigFile is the default path to the configuration file.
+const DefaultConfigFile = "config.gob"
 
 var DefaultConfig = &config.Config{
 	RefreshRate: 1 * time.Minute,
@@ -34,78 +38,96 @@ var DefaultConfig = &config.Config{
 	Gap: 0,
 }
 
+// NewLedDisplay initializes the LED hardware with settings from the config.
 func NewLedDisplay(c *config.Config) (*ws2811.WS2811, error) {
 	opt := ws2811.DefaultOptions
 	opt.Channels[0].Brightness = c.Brightness
 
-	// var numLeds = (c.Tick.NumHours*c.Tick.TicksPerHour)*2 + c.Gap*2
-	// for now just do everything
-	opt.Channels[0].LedCount = 144
+	// Dynamically calculate the number of LEDs required.
+	numLeds := (c.Tick.NumHours * c.Tick.TicksPerHour) * 2
+	opt.Channels[0].LedCount = numLeds
 	return ws2811.MakeWS2811(&opt)
 }
 
 func main() {
-	fmt.Println("starting...")
-	c, err := config.ReadConfig(ConfigFile)
+	configFile := flag.String("config", DefaultConfigFile, "Path to configuration file.")
+	flag.Parse()
+
+	log.Println("starting...")
+	c, err := config.ReadConfig(*configFile)
 	if err != nil {
-		fmt.Println("read config error using default:%w", err)
+		log.Printf("read config error, using default: %v", err)
 		c = DefaultConfig
 	}
-	fmt.Printf("~~~~~~~~~~~~~~~\n %+v\n\n", c)
 
 	dev, err := NewLedDisplay(c)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to create display: %v", err)
 	}
 
-	err = dev.Init()
-	if err != nil {
-		panic(err)
+	if err := dev.Init(); err != nil {
+		log.Fatalf("failed to initialize display: %v", err)
 	}
 	defer dev.Fini()
 
-	time.Sleep(1 * time.Second)
+	// A brief startup sequence to clear the display.
+	time.Sleep(500 * time.Millisecond)
 	display.Clear(dev)
-	time.Sleep(1 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
-	go startClock(dev, c)
+	// Set up a context for graceful shutdown.
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
 
-	// // Wait for Shutdown
-	fmt.Println("waiting...")
+	// Start the clock in a separate goroutine.
+	go startClock(ctx, dev, c, *configFile)
+
+	// Wait for an interrupt signal to gracefully shut down.
+	log.Println("running...")
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	fmt.Print("shutting down...")
+	log.Print("shutting down...")
+	stop() // Signal the clock goroutine to stop.
 
-	// try to clear leds when shutting down
-	if dev != nil {
-		display.Clear(dev)
-	}
+	// Clean up by clearing the display.
+	display.Clear(dev)
 	time.Sleep(1 * time.Second)
-	fmt.Println("done")
+	log.Println("done")
 }
 
-func startClock(dev *ws2811.WS2811, c *config.Config) {
+// startClock runs the main loop for the clock, updating the display periodically.
+func startClock(ctx context.Context, dev display.Displayer, initialCfg *config.Config, configFile string) {
 	if dev == nil {
 		return
 	}
+
+	cfg := initialCfg
+	ticker := time.NewTicker(cfg.RefreshRate)
+	defer ticker.Stop()
+
 	for {
-		fmt.Println("tick:", time.Now())
-		err := display.DisplayTime(time.Now(), c, dev)
-		if err != nil {
-			fmt.Println("display time error:", err)
+		select {
+		case <-ticker.C:
+			log.Println("tick:", time.Now())
+			if err := display.DisplayTime(time.Now(), cfg, dev); err != nil {
+				log.Printf("display time error: %v", err)
+				return // Exit if display fails.
+			}
+
+			// Periodically check for configuration changes.
+			if nc, err := config.ReadConfig(configFile); err == nil {
+				if nc.RefreshRate != cfg.RefreshRate {
+					ticker.Reset(nc.RefreshRate) // Update ticker if refresh rate changed.
+				}
+				cfg = nc
+			} else {
+				log.Printf("could not refresh config, using old: %v", err)
+			}
+		case <-ctx.Done():
+			log.Println("stopping clock.")
 			return
-		}
-
-		time.Sleep(c.RefreshRate)
-
-		// refresh config, only override if successful. Otherwise don't change config.
-		nc, err := config.ReadConfig(ConfigFile)
-		if err != nil {
-			fmt.Println("read config, no change:%w", err)
-		} else {
-			c = nc
 		}
 	}
 }

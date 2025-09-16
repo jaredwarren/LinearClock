@@ -6,3 +6,7 @@ build:
 
 push: 
 	scp $$APP-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/$$APP-armv7
+
+
+build-image:
+	docker buildx build --platform linux/arm/v7 --tag ws2811-builder --file docker/app-builder/Dockerfile .

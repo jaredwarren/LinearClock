@@ -7,142 +7,206 @@ import (
 	"github.com/jaredwarren/clock/clock/config"
 )
 
+// Displayer represents a device that can display colored LEDs.
 type Displayer interface {
+	// Init initializes the display device.
 	Init() error
+	// Fini finalizes the display device, cleaning up resources.
 	Fini()
+	// Leds returns the slice of LEDs for a given channel, which can be manipulated.
 	Leds(channel int) []uint32
+	// Render sends the current LED state to the physical device.
 	Render() error
 }
 
-func DisplayTime(t time.Time, c *config.Config, dev Displayer) error {
-	h := float64(t.Hour())   // 24h
+// DisplayTime calculates and renders the clock face for a given time.
+// It orchestrates the drawing of tick marks and hour numbers onto the LED strip.
+func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
+	h := float64(t.Hour())   // 24h format
 	m := float64(t.Minute()) // [0, 59]
 
-	// calculate tick that matches input time
-	tph := float64(4) // default 4, to avoid divide by 0
-	if c.Tick.TicksPerHour != 0 {
-		tph = float64(c.Tick.TicksPerHour)
+	// 1. Calculate time components
+	ticksPerHour := 4.0 // Default to 4 ticks per hour (15 min)
+	if cfg.Tick.TicksPerHour != 0 {
+		ticksPerHour = float64(cfg.Tick.TicksPerHour)
 	}
-	minPerTick := 60 / tph
-	mtick := math.Floor(m / minPerTick)
-	htick := math.Floor((h - float64(c.Tick.StartHour)) * tph)
-	lastLed := mtick + htick
+	minPerTick := 60.0 / ticksPerHour
+	minuteTick := math.Floor(m / minPerTick)
+	hourTick := math.Floor((h - float64(cfg.Tick.StartHour)) * ticksPerHour)
+	lastLed := minuteTick + hourTick
 
-	numTickLeds := c.Tick.NumHours * c.Tick.TicksPerHour
+	leds := d.Leds(0)
+	numTickLeds := cfg.Tick.NumHours * cfg.Tick.TicksPerHour
 
-	alt := false
+	// 2. Set tick LEDs
+	setTickLEDs(leds, numTickLeds, int(lastLed), ticksPerHour, cfg, t)
 
-	for i := 0; i < numTickLeds; i++ {
-		if i%c.Tick.TicksPerHour == 0 {
-			alt = !alt
-		}
-
-		if i < int(lastLed) {
-			// Turn Off tick
-			dev.Leds(0)[i] = c.Tick.PastColor
-		} else if i > int(lastLed) {
-			// Turn On tick
-			if alt {
-				dev.Leds(0)[i] = c.Tick.FutureColorB
-			} else {
-				dev.Leds(0)[i] = c.Tick.FutureColor
-			}
-		} else {
-			if c.Tick.PresentColor != 0 {
-				dev.Leds(0)[i] = c.Tick.PresentColor
-			} else {
-				// fade linearly between off and on color
-				ftick := (minPerTick*mtick - m + minPerTick) / minPerTick
-
-				var ru8 uint8
-				var gu8 uint8
-				var bu8 uint8
-
-				// if alt {
-				// 	ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColorB)
-				// } else {
-				// 	ru8, gu8, bu8 = hexToRGB(c.Tick.FutureColor)
-				// }
-
-				// test alturnative color for current tick
-				ru8, gu8, bu8 = hexToRGB(c.Num.PresentColor)
-
-				r := ftick * float64(ru8)
-				g := ftick * float64(gu8)
-				b := ftick * float64(bu8)
-
-				oru8, ogu8, obu8 := hexToRGB(c.Tick.PastColor)
-				or := (1 - ftick) * float64(oru8)
-				og := (1 - ftick) * float64(ogu8)
-				ob := (1 - ftick) * float64(obu8)
-
-				dev.Leds(0)[i] = rgbToHex(uint8(r+or), uint8(g+og), uint8(b+ob))
-			}
-		}
-	}
-
-	// Set "number" leds.
-	// assume: same number of leds as ticks,
-	// assume: numbers follow ticks
-	// assume: reverse order, because leds are wired in loop
-	start := numTickLeds + c.Gap
-	end := start
-	for i := numTickLeds; i < numTickLeds*2; i++ {
-		if i < int(htick)+numTickLeds {
-			dev.Leds(0)[i+c.Gap] = c.Num.PastColor
-		} else if i > int(htick)+numTickLeds {
-			dev.Leds(0)[i+c.Gap] = c.Num.FutureColor
-			end = i + c.Gap
-		} else {
-			for j := i; j < i+c.Tick.TicksPerHour; j++ {
-				dev.Leds(0)[j+c.Gap] = c.Num.PresentColor
-			}
-			i = i + c.Tick.TicksPerHour - 1
-		}
-	}
-	reversePart(dev.Leds(0), start, end+1)
+	// 3. Set "number" LEDs
+	setNumberLEDs(leds, numTickLeds, int(hourTick), cfg)
 
 	// TODO: add override here for specific events
 
-	applyBrightness(dev.Leds(0), c.Brightness)
+	// 4. Apply global brightness
+	applyBrightness(leds, cfg.Brightness)
 
-	return dev.Render()
+	// 5. Render to device
+	return d.Render()
 }
 
-func applyBrightness(leds []uint32, br int) {
-	var f float64
-	if br < 256 && br > 0 {
-		f = float64(br) / 256
-	} else if br >= 256 {
-		f = 1
+// setTickLEDs sets the colors for the "tick" portion of the LED strip.
+func setTickLEDs(leds []uint32, numTickLeds, lastLed int, ticksPerHour float64, cfg *config.Config, t time.Time) {
+	isAltHour := false
+
+	// Boundary check to prevent panic if configured LEDs exceed available LEDs.
+	if numTickLeds > len(leds) {
+		numTickLeds = len(leds)
 	}
-	for i, l := range leds {
-		r, g, b := hexToRGB(l)
-		leds[i] = rgbToHex(uint8(float64(r)*f), uint8(float64(g)*f), uint8(float64(b)*f))
+
+	for i := 0; i < numTickLeds; i++ {
+		// Alternate color scheme for each hour block.
+		if i%cfg.Tick.TicksPerHour == 0 {
+			isAltHour = !isAltHour
+		}
+
+		switch {
+		case i < lastLed:
+			// Past ticks
+			leds[i] = cfg.Tick.PastColor
+		case i > lastLed:
+			// Future ticks
+			if isAltHour {
+				leds[i] = cfg.Tick.FutureColorB
+			} else {
+				leds[i] = cfg.Tick.FutureColor
+			}
+		default: // i == lastLed
+			// Current tick
+			if cfg.Tick.PresentColor != 0 {
+				leds[i] = cfg.Tick.PresentColor
+			} else {
+				// Fade from a "present" color to the past color to show progress through the current tick.
+				minPerTick := 60.0 / ticksPerHour
+				minute := float64(t.Minute())
+				minuteTick := math.Floor(minute / minPerTick)
+
+				// fraction represents the proportion of the current tick remaining.
+				fraction := (minPerTick*minuteTick - minute + minPerTick) / minPerTick
+
+				// The fade starts from Num.PresentColor and fades to Tick.PastColor.
+				fromColor := cfg.Tick.PastColor
+				toColor := cfg.Num.PresentColor
+				leds[i] = fade(fromColor, toColor, fraction)
+			}
+		}
 	}
 }
 
+// setNumberLEDs sets the colors for the "number" or "hour" portion of the LED strip.
+func setNumberLEDs(leds []uint32, numTickLeds, hourTick int, cfg *config.Config) {
+	// "Number" LEDs are assumed to be a second logical group of LEDs,
+	// typically after a gap from the tick LEDs.
+	start := numTickLeds + cfg.Gap
+
+	// This assumes the number of "hour" LEDs is the same as tick LEDs.
+	numHourLEDs := cfg.Tick.NumHours * cfg.Tick.TicksPerHour
+
+	end := start // Used to determine the segment to reverse.
+
+	for i := 0; i < numHourLEDs; {
+		ledIndex := start + i
+		if ledIndex >= len(leds) {
+			break // Boundary check
+		}
+
+		switch {
+		case i < hourTick:
+			leds[ledIndex] = cfg.Num.PastColor
+			i++
+		case i > hourTick:
+			leds[ledIndex] = cfg.Num.FutureColor
+			end = ledIndex
+			i++
+		default: // i == hourTick, the current hour
+			// Light up a block of LEDs for the current hour.
+			for j := 0; j < cfg.Tick.TicksPerHour; j++ {
+				if idx := ledIndex + j; idx < len(leds) {
+					leds[idx] = cfg.Num.PresentColor
+				}
+			}
+			i += cfg.Tick.TicksPerHour
+		}
+	}
+
+	// The number LEDs are physically arranged in reverse order.
+	reversePart(leds, start, end+1)
+}
+
+// fade performs linear interpolation between two colors.
+// fraction is from 0.0 to 1.0, controlling the mix.
+func fade(from, to uint32, fraction float64) uint32 {
+	r1, g1, b1 := hexToRGB(from)
+	r2, g2, b2 := hexToRGB(to)
+
+	r := float64(r1)*(1-fraction) + float64(r2)*fraction
+	g := float64(g1)*(1-fraction) + float64(g2)*fraction
+	b := float64(b1)*(1-fraction) + float64(b2)*fraction
+
+	return rgbToHex(uint8(r), uint8(g), uint8(b))
+}
+
+// applyBrightness scales the brightness of all LEDs.
+// brightness is an integer from 0 to 256, where 256 is full brightness.
+func applyBrightness(leds []uint32, brightness int) {
+	if brightness >= 256 {
+		return // Max brightness, no change needed.
+	}
+	if brightness < 0 {
+		brightness = 0
+	}
+
+	// Use integer arithmetic for performance. (val * brightness) >> 8 is a fast
+	// equivalent of (val * brightness) / 256.
+	for i, c := range leds {
+		if c == 0 {
+			continue
+		}
+		r, g, b := hexToRGB(c)
+		// Use uint16 to prevent overflow during multiplication before shifting.
+		r = uint8((uint16(r) * uint16(brightness)) >> 8)
+		g = uint8((uint16(g) * uint16(brightness)) >> 8)
+		b = uint8((uint16(b) * uint16(brightness)) >> 8)
+		leds[i] = rgbToHex(r, g, b)
+	}
+}
+
+// reversePart reverses a portion of a slice of uint32s in place.
 func reversePart(slice []uint32, start, end int) {
+	if start < 0 || end > len(slice) || start >= end {
+		return // Invalid range
+	}
 	for i, j := start, end-1; i < j; i, j = i+1, j-1 {
 		slice[i], slice[j] = slice[j], slice[i]
 	}
 }
 
+// rgbToHex converts R, G, B components to a single uint32 color.
 func rgbToHex(r, g, b uint8) uint32 {
 	return uint32(r)<<16 | uint32(g)<<8 | uint32(b)
 }
 
+// hexToRGB converts a uint32 color to its R, G, B components.
 func hexToRGB(c uint32) (uint8, uint8, uint8) {
-	r := (uint8(c >> 16))
-	g := (uint8(c >> 8))
-	b := (uint8(c))
+	r := uint8(c >> 16)
+	g := uint8(c >> 8)
+	b := uint8(c)
 	return r, g, b
 }
 
-func Clear(dev Displayer) {
-	leds := dev.Leds(0)
-	for i := 0; i < len(leds); i++ {
+// Clear turns off all LEDs on the display.
+func Clear(d Displayer) {
+	leds := d.Leds(0)
+	for i := range leds {
 		leds[i] = 0x000000
 	}
-	dev.Render()
+	d.Render()
 }
