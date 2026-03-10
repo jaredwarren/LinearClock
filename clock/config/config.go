@@ -1,12 +1,16 @@
+// DO NOT EDIT. This file is generated from lib/config/config.go. Run 'go generate' to regenerate.
+
 package config
 
 import (
 	"encoding/gob"
+	"fmt"
 	"os"
 	"time"
 )
 
 type Config struct {
+	DisplayMode string
 	// general
 	Brightness  int
 	RefreshRate time.Duration
@@ -16,9 +20,6 @@ type Config struct {
 
 	// numbers
 	Gap int // number of leds between ticks and numbers
-
-	// V2
-	DisplayMode string
 }
 
 // TickConfig ...
@@ -26,8 +27,8 @@ type TickConfig struct {
 	PastColor    uint32
 	PresentColor uint32
 	FutureColor  uint32
-	FutureColorB uint32 // alternate every num ticks
-	StartHour    int    // 24h time
+	FutureColorB uint32
+	StartHour    int // 24h time
 	StartLed     int
 	TicksPerHour int
 	NumHours     int
@@ -47,24 +48,55 @@ type NumConfig struct {
 	Mode    string // "count down", "count up", "time", etc
 }
 
+var DefaultConfig = &Config{
+	RefreshRate: 1 * time.Minute,
+	Brightness:  128,
+	Tick: TickConfig{
+		FutureColor:  0x00ff00,
+		PastColor:    0xFF0000,
+		StartHour:    8, // for testing set to curren thour or lower
+		StartLed:     1,
+		Reverse:      false,
+		TicksPerHour: 4,
+		NumHours:     6,
+	},
+	Num: NumConfig{
+		PastColor:    0xffff00,
+		FutureColor:  0x00ffff,
+		PresentColor: 0xff00ff,
+	},
+	Gap: 4,
+}
+
 func ReadConfig(filepath string) (*Config, error) {
-	// Open the file for reading
 	file, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	// Create a new decoder
 	decoder := gob.NewDecoder(file)
-
-	// Decode the data
 	var config Config
 	err = decoder.Decode(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	// Print the decoded data
 	return &config, nil
+}
+
+func WriteConfig(filepath string, c *Config) error {
+	// File does not exist, create it
+	file, err := os.Create(filepath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	enc := gob.NewEncoder(file)
+	err = enc.Encode(c)
+	if err != nil {
+		return fmt.Errorf("encode config %s - %w", filepath, err)
+	}
+	return nil
 }

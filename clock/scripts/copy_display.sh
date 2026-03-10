@@ -9,3 +9,9 @@ sed -i '' \
     -e 's|github.com/jaredwarren/clock/lib/config|github.com/jaredwarren/clock/clock/config|' \
     -e '1s;^;// DO NOT EDIT. This file is generated from lib/display/display.go. Run '"'go generate'"' to regenerate.\n\n;' \
     ./display/display.go
+
+cp ../lib/config/config.go ./config/config.go
+sed -i '' \
+    -e 's|github.com/jaredwarren/clock/lib/config|github.com/jaredwarren/clock/clock/config|' \
+    -e '1s;^;// DO NOT EDIT. This file is generated from lib/config/config.go. Run '"'go generate'"' to regenerate.\n\n;' \
+    ./config/config.go
