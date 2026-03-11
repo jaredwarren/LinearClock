@@ -1,112 +1,173 @@
 # Linear Clock
-Tested on Raspberry Pi Zero 2
 
+A Raspberry Pi LED clock that displays time on a WS281x strip. A web UI lets you configure colors, brightness, and layout; the clock daemon reads a shared config file and stays lightweight for reliable real-time updates.
 
-## Setup
+**Tested on:** Raspberry Pi Zero 2 (32-bit OS required)
 
-1. Setup headless Pi
-2. MUST BE 32bit!!!
+---
 
+## Architecture
 
-2. Transfer files
-on pi
- - `mkdir -p /home/pi/go/github.com/jaredwarren/clock`
+| Component   | Description |
+|------------|-------------|
+| **clockd** | Daemon that drives the LED strip. Reads `config.gob`, refreshes at a set interval, and stays minimal for performance. |
+| **configd** | HTTP server (port 8080) for the config UI. Serves templates and static files, and writes `config.gob` for clockd to read. |
+| **config.gob** | Shared config file (gob format). configd writes it; clockd reads and hot-reloads it. |
 
-on mac
+Optional:
 
-`scp config-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/config-armv7`
-`scp clock/clock-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/clock-armv7`
+- **cli-clock** — Local CLI that runs the same clock logic against a mock (terminal) display for development.
 
-`scp -r templates pi@clock.local:/home/pi/go/github.com/jaredwarren/clock`
+---
 
+## Prerequisites
 
-1. Setup systemd
-### setup config server
-`sudo nano /lib/systemd/system/config.service`
-paste config.service
+- Raspberry Pi (e.g. Zero 2) running a **32-bit** OS
+- WS281x-compatible LED strip
+- Go 1.23+ (for building on your dev machine)
 
-or
+---
 
-`rsync --rsync-path="sudo rsync" config.service pi@clock.local:/lib/systemd/system/config.service`
+## Installation
 
+### 1. Prepare the Pi
 
+On the Pi, create the app directory:
 
-`sudo systemctl restart config.service` 
+```bash
+mkdir -p /home/pi/go/github.com/jaredwarren/clock
+```
 
-### setup clock
-`sudo nano /lib/systemd/system/clock.service`
-paste clock.service
+### 2. Build and copy binaries
 
-or
+On your Mac (or other host):
 
-`rsync --rsync-path="sudo rsync" config.service pi@clock.local:/lib/systemd/system/config.service`
+```bash
+# From repo root
+make build-clockd-arm   # Produces clockd-armv7 (requires Docker + clock/docker builder)
+make build-configd-arm # Produces configd-armv7
+```
 
+Then copy binaries and assets to the Pi (replace `pi@clock.local` with your Pi user and host):
 
-`sudo systemctl restart clock.service`
+```bash
+scp clockd-armv7 configd-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/
+scp -r templates public pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/
+```
 
+Or use the Makefile (set `HOST` and `USER` as needed):
 
+```bash
+make push
+```
 
+### 3. Install systemd services
 
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# Build and update clock
-## build docker builder image on mac
-only once or when updating dockerfile
-`docker buildx build --platform linux/arm/v7 --tag ws2811-builder --file docker/app-builder/Dockerfile .`
+**Config server** (web UI):
 
-## use image to cross compile app on mac for pi
-`APP=clock`̋̊̋
-`docker run --rm -v "$PWD":/usr/src/$$APP --platform linux/arm/v7 -w /usr/src/$APP ws2811-builder:latest go build -a -o "$APP-armv7" -v`
+```bash
+sudo cp config.service /lib/systemd/system/
+# or: rsync --rsync-path="sudo rsync" config.service pi@clock.local:/lib/systemd/system/config.service
+sudo systemctl daemon-reload
+sudo systemctl enable config.service
+sudo systemctl start config.service
+```
 
-### on pi
-`sudo systemctl stop clock.service`
+**Clock daemon**:
 
-## on mac push app to pi
-`scp clock-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/clock-armv7`
+```bash
+sudo cp clock.service /lib/systemd/system/
+# or: rsync --rsync-path="sudo rsync" clock.service pi@clock.local:/lib/systemd/system/clock.service
+sudo systemctl daemon-reload
+sudo systemctl enable clock.service
+sudo systemctl start clock.service
+```
 
-### on pi
-`sudo systemctl restart clock.service`
+### 4. Open the config UI
 
+In a browser: **http://clock.local:8080** (or your Pi’s hostname/IP).
 
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+---
 
-# Build & update config server
-build config server on mac
-`GOOS=linux GOARCH=arm GOARM=7 go build -o config-armv7 cmd/server/main.go`
+## Building
 
-## Push to pi
-### on pi
-`sudo systemctl stop config.service`
+### clockd (ARM, cross-compile via Docker)
 
-### on mac
-`scp config-armv7 pi@clock.local:/home/pi/go/github.com/jaredwarren/clock/config-armv7`
-push config
-`scp -r templates pi@clock.local:/home/pi/go/github.com/jaredwarren/clock`
+clockd depends on the rpi_ws281x C library, so it is built in a Docker image that provides it.
 
-### on Pi
-`sudo systemctl restart config.service`
+**One-time: build the builder image** (from repo root):
 
-test
-`http://clock.local:8080`
+```bash
+make -C clock build-image
+```
 
+**Build the ARM binary** (from repo root):
 
+```bash
+make build-clockd-arm
+```
 
+This produces `clockd-armv7` in the repo root. Alternatively, from the `clock/` directory: `make build`.
 
+### configd (ARM, pure Go)
 
- 
+No C deps; cross-compile from your machine:
 
+```bash
+make build-configd-arm
+# or:
+GOOS=linux GOARCH=arm GOARM=7 go build -o configd-armv7 -v ./cmd/configd
+```
 
+### Local / development
 
- `sudo systemctl restart player.service`  or `sudo reboot now` 
+- **configd** (run locally): `go run ./cmd/configd` (serve from repo root so `templates/` and `public/` resolve).
+- **cli-clock** (mock display in terminal): `go run ./cmd/cli-clock`.
 
+---
 
+## Updating a running Pi
 
+1. **On Pi:** stop the service you’re updating (e.g. `sudo systemctl stop clock.service`).
+2. **On Mac:** build, then copy the new binary (and any changed `templates/` or `public/`) to the Pi.
+3. **On Pi:** `sudo systemctl start clock.service` (or `config.service`).
 
-# TODO #
- - fix test
-  - colors
-  - icon
-- resresh too slow
-- make sure brightness config works
-- 
+---
 
+## Project layout
 
+```
+├── cmd/
+│   ├── clockd/      # LED clock daemon (uses internal/hw + internal/display)
+│   ├── configd/     # Config HTTP server (uses internal/server)
+│   └── cli-clock/   # Local mock clock for development
+├── internal/
+│   ├── config/      # Shared config types and config.gob read/write
+│   ├── display/     # Clock face logic (DisplayTime, Clear, Displayer interface)
+│   ├── hw/          # WS281x hardware wrapper (used only by clockd)
+│   └── server/      # HTTP handlers and templates for configd
+├── lib/
+│   └── mock/        # Mock display (e.g. terminal output for cli-clock)
+├── templates/       # HTML for config UI
+├── public/          # Static assets for config UI
+├── clock.service    # systemd unit for clockd
+├── config.service   # systemd unit for configd
+└── clock/           # Docker builder and Makefile for cross-compiling clockd
+```
+
+---
+
+## TODO / roadmap
+
+- Fix tests (e.g. colors, icon)
+- Tune refresh rate / performance
+- Ensure brightness config is applied correctly
+- Events: delete/update, persist for clock to read, show on clock, repeat (see `notes.md`)
+
+---
+
+## Reference
+
+- **SSH to Pi:** `ssh pi@clock.local`
+- **Restart services:** `sudo systemctl restart clock.service` or `sudo systemctl restart config.service`
+- **Notes and design ideas:** see `notes.md`
