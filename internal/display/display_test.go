@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jaredwarren/clock/internal/config"
-	"github.com/stretchr/testify/assert"
 )
 
 // mockDisplayer is a mock implementation of the Displayer interface for testing.
@@ -26,82 +25,153 @@ func (m *mockDisplayer) Leds(channel int) []uint32 { return m.leds }
 func (m *mockDisplayer) Render() error             { m.rendered = true; return nil }
 
 func TestHexRGBConversion(t *testing.T) {
-	r, g, b := uint8(0x12), uint8(0x34), uint8(0x56)
-	hex := rgbToHex(r, g, b)
-	assert.Equal(t, uint32(0x123456), hex)
-
-	r2, g2, b2 := hexToRGB(hex)
-	assert.Equal(t, r, r2)
-	assert.Equal(t, g, g2)
-	assert.Equal(t, b, b2)
+	tests := []struct {
+		name string
+		r, g, b uint8
+		wantHex uint32
+	}{
+		{"roundtrip 0x12 0x34 0x56", 0x12, 0x34, 0x56, 0x123456},
+		{"black", 0, 0, 0, 0},
+		{"white", 0xFF, 0xFF, 0xFF, 0xFFFFFF},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hex := rgbToHex(tt.r, tt.g, tt.b)
+			if hex != tt.wantHex {
+				t.Errorf("rgbToHex(%#x, %#x, %#x) = %#x, want %#x", tt.r, tt.g, tt.b, hex, tt.wantHex)
+			}
+			r2, g2, b2 := hexToRGB(hex)
+			if r2 != tt.r || g2 != tt.g || b2 != tt.b {
+				t.Errorf("hexToRGB(%#x) = (%#x, %#x, %#x), want (%#x, %#x, %#x)", hex, r2, g2, b2, tt.r, tt.g, tt.b)
+			}
+		})
+	}
 }
 
 func TestReversePart(t *testing.T) {
-	slice := []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
-	reversePart(slice, 2, 7) // reverse from index 2 up to (not including) 7
-	expected := []uint32{0, 1, 6, 5, 4, 3, 2, 7, 8, 9}
-	assert.Equal(t, expected, slice)
+	tests := []struct {
+		name        string
+		slice       []uint32
+		start, end  int
+		want        []uint32
+	}{
+		{
+			name:  "middle segment",
+			slice: []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			start: 2,
+			end:   7,
+			want:  []uint32{0, 1, 6, 5, 4, 3, 2, 7, 8, 9},
+		},
+		{
+			name:  "full slice",
+			slice: []uint32{1, 2, 3},
+			start: 0,
+			end:   3,
+			want:  []uint32{3, 2, 1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reversePart(tt.slice, tt.start, tt.end)
+			if len(tt.slice) != len(tt.want) {
+				t.Errorf("reversePart(...): len(got) = %d, len(want) = %d", len(tt.slice), len(tt.want))
+				return
+			}
+			for i := range tt.want {
+				if tt.slice[i] != tt.want[i] {
+					t.Errorf("reversePart(...) at index %d: got %v, want %v", i, tt.slice, tt.want)
+					return
+				}
+			}
+		})
+	}
 }
 
 func TestApplyBrightness(t *testing.T) {
-	leds := []uint32{0xFF0000, 0x00FF00, 0x0000FF}
-
-	// Test with 50% brightness (128/256)
-	originalLeds := make([]uint32, len(leds))
-	copy(originalLeds, leds)
-	applyBrightness(originalLeds, 128)
-
-	r1, g1, b1 := hexToRGB(originalLeds[0])
-	assert.InDelta(t, 127, r1, 1)
-	assert.Equal(t, uint8(0), g1)
-	assert.Equal(t, uint8(0), b1)
-
-	r2, g2, b2 := hexToRGB(originalLeds[1])
-	assert.Equal(t, uint8(0), r2)
-	assert.InDelta(t, 127, g2, 1)
-	assert.Equal(t, uint8(0), b2)
-
-	r3, g3, b3 := hexToRGB(originalLeds[2])
-	assert.Equal(t, uint8(0), r3)
-	assert.Equal(t, uint8(0), g3)
-	assert.InDelta(t, 127, b3, 1)
-
-	// Test full brightness
-	fullBrightnessLeds := []uint32{0x808080}
-	applyBrightness(fullBrightnessLeds, 256)
-	assert.Equal(t, uint32(0x808080), fullBrightnessLeds[0])
-
-	// Test > 255 brightness
-	overBrightnessLeds := []uint32{0x808080}
-	applyBrightness(overBrightnessLeds, 300)
-	assert.Equal(t, uint32(0x808080), overBrightnessLeds[0])
-
-	// Test 0 brightness
-	zeroBrightnessLeds := []uint32{0xFFFFFF}
-	applyBrightness(zeroBrightnessLeds, 0)
-	assert.Equal(t, uint32(0), zeroBrightnessLeds[0])
+	tests := []struct {
+		name       string
+		leds       []uint32
+		brightness int
+		want       []uint32
+	}{
+		{
+			name:       "50 percent brightness",
+			leds:       []uint32{0xFF0000, 0x00FF00, 0x0000FF},
+			brightness: 128,
+			want:       []uint32{0x7F0000, 0x007F00, 0x00007F}, // 255*128/256 ≈ 127
+		},
+		{
+			name:       "full brightness",
+			leds:       []uint32{0x808080},
+			brightness: 256,
+			want:       []uint32{0x808080},
+		},
+		{
+			name:       "over max brightness",
+			leds:       []uint32{0x808080},
+			brightness: 300,
+			want:       []uint32{0x808080},
+		},
+		{
+			name:       "zero brightness",
+			leds:       []uint32{0xFFFFFF},
+			brightness: 0,
+			want:       []uint32{0},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			applyBrightness(tt.leds, tt.brightness)
+			if len(tt.leds) != len(tt.want) {
+				t.Errorf("applyBrightness(...): len(got) = %d, len(want) = %d", len(tt.leds), len(tt.want))
+				return
+			}
+			for i := range tt.want {
+				if got := tt.leds[i]; got != tt.want[i] {
+					t.Errorf("applyBrightness(...) at index %d: got %#x, want %#x", i, got, tt.want[i])
+					return
+				}
+			}
+		})
+	}
 }
 
 func TestClear(t *testing.T) {
-	dev := newMockDisplayer(10)
-	for i := range dev.leds {
-		dev.leds[i] = 0xFFFFFF
+	tests := []struct {
+		name     string
+		numLeds  int
+		fillWith uint32
+	}{
+		{"clears 10 leds filled white", 10, 0xFFFFFF},
+		{"clears 1 led", 1, 0x123456},
 	}
-
-	Clear(dev)
-
-	assert.True(t, dev.rendered)
-	for i, led := range dev.leds {
-		assert.Equal(t, uint32(0x000000), led, "led %d should be off", i)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dev := newMockDisplayer(tt.numLeds)
+			for i := range dev.leds {
+				dev.leds[i] = tt.fillWith
+			}
+			if err := Clear(dev); err != nil {
+				t.Fatalf("Clear() error = %v", err)
+			}
+			if !dev.rendered {
+				t.Error("Clear: expected Render to be called")
+			}
+			for i, led := range dev.leds {
+				if led != 0x000000 {
+					t.Errorf("led %d = %#x, want 0x000000", i, led)
+				}
+			}
+		})
 	}
 }
 
 func TestDisplayTime(t *testing.T) {
-	c := &config.Config{
-		Brightness: 256, // Use full brightness to simplify color checking
+	baseCfg := &config.Config{
+		Brightness: 256,
 		Tick: config.TickConfig{
 			PastColor:    0xff0000,
-			PresentColor: 0, // Test fade logic
+			PresentColor: 0,
 			FutureColor:  0x00ff00,
 			FutureColorB: 0xff00,
 			StartHour:    9,
@@ -115,59 +185,84 @@ func TestDisplayTime(t *testing.T) {
 		},
 		Gap: 2,
 	}
-	numTickLeds := c.Tick.NumHours * c.Tick.TicksPerHour // 16
-	numNumLeds := numTickLeds                            // 16
-	totalLeds := numTickLeds + c.Gap + numNumLeds        // 34
-	dev := newMockDisplayer(totalLeds)
-
-	// Time: 10:37. h=10, m=37
-	// tph=4, minPerTick=15. mtick=floor(37/15)=2.
-	// htick=floor((10-9)*4)=4. lastLed=2+4=6.
+	numTickLeds := baseCfg.Tick.NumHours * baseCfg.Tick.TicksPerHour
+	totalLeds := numTickLeds + baseCfg.Gap + numTickLeds
 	testTime := time.Date(2024, 1, 1, 10, 37, 0, 0, time.UTC)
 
-	err := DisplayTime(testTime, c, dev)
-	assert.NoError(t, err)
-	assert.True(t, dev.rendered)
-
-	t.Run("Tick LEDs", func(t *testing.T) {
-		// LEDs 0-5 are past
-		for i := 0; i < 6; i++ {
-			assert.Equal(t, c.Tick.PastColor, dev.Leds(0)[i], "tick led %d should be past color", i)
-		}
-
-		// LED 6 is present (fading)
-		r, g, b := hexToRGB(dev.Leds(0)[6])
-		assert.InDelta(t, 119, r, 1, "present tick red component")
-		assert.Equal(t, uint8(0), g, "present tick green component")
-		assert.InDelta(t, 100, b, 1, "present tick blue component")
-
-		assert.Equal(t, c.Tick.FutureColorB, dev.Leds(0)[7], "tick led 7")
-		for i := 8; i <= 11; i++ {
-			assert.Equal(t, c.Tick.FutureColor, dev.Leds(0)[i], "tick led %d", i)
-		}
-		for i := 12; i <= 15; i++ {
-			assert.Equal(t, c.Tick.FutureColorB, dev.Leds(0)[i], "tick led %d", i)
-		}
-	})
-
-	t.Run("Number LEDs", func(t *testing.T) {
-		for i := 18; i <= 25; i++ {
-			assert.Equal(t, c.Num.FutureColor, dev.Leds(0)[i], "num led %d should be future", i)
-		}
-		for i := 26; i <= 29; i++ {
-			assert.Equal(t, c.Num.PresentColor, dev.Leds(0)[i], "num led %d should be present", i)
-		}
-		for i := 30; i <= 33; i++ {
-			assert.Equal(t, c.Num.PastColor, dev.Leds(0)[i], "num led %d should be past", i)
-		}
-	})
-
-	t.Run("With PresentColor set", func(t *testing.T) {
-		c.Tick.PresentColor = 0x123456
-		dev := newMockDisplayer(totalLeds)
-		err := DisplayTime(testTime, c, dev)
-		assert.NoError(t, err)
-		assert.Equal(t, c.Tick.PresentColor, dev.Leds(0)[6], "present tick should use PresentColor")
-		c.Tick.PresentColor = 0 // reset for other tests
-	})
+	tests := []struct {
+		name   string
+		cfg    *config.Config
+		check  func(t *testing.T, dev *mockDisplayer, c *config.Config)
+	}{
+		{
+			name: "tick and number LEDs",
+			cfg:  baseCfg,
+			check: func(t *testing.T, dev *mockDisplayer, c *config.Config) {
+				leds := dev.Leds(0)
+				for i := 0; i < 6; i++ {
+					if leds[i] != c.Tick.PastColor {
+						t.Errorf("tick led %d = %#x, want past %#x", i, leds[i], c.Tick.PastColor)
+					}
+				}
+				r, g, b := hexToRGB(leds[6])
+				if r < 118 || r > 120 || g != 0 || b < 99 || b > 101 {
+					t.Errorf("present tick led 6: r=%d g=%d b=%d, want r≈119 g=0 b≈100", r, g, b)
+				}
+				if leds[7] != c.Tick.FutureColorB {
+					t.Errorf("tick led 7 = %#x, want %#x", leds[7], c.Tick.FutureColorB)
+				}
+				for i := 8; i <= 11; i++ {
+					if leds[i] != c.Tick.FutureColor {
+						t.Errorf("tick led %d = %#x, want %#x", i, leds[i], c.Tick.FutureColor)
+					}
+				}
+				for i := 12; i <= 15; i++ {
+					if leds[i] != c.Tick.FutureColorB {
+						t.Errorf("tick led %d = %#x, want %#x", i, leds[i], c.Tick.FutureColorB)
+					}
+				}
+				for i := 18; i <= 25; i++ {
+					if leds[i] != c.Num.FutureColor {
+						t.Errorf("num led %d = %#x, want future %#x", i, leds[i], c.Num.FutureColor)
+					}
+				}
+				for i := 26; i <= 29; i++ {
+					if leds[i] != c.Num.PresentColor {
+						t.Errorf("num led %d = %#x, want present %#x", i, leds[i], c.Num.PresentColor)
+					}
+				}
+				for i := 30; i <= 33; i++ {
+					if leds[i] != c.Num.PastColor {
+						t.Errorf("num led %d = %#x, want past %#x", i, leds[i], c.Num.PastColor)
+					}
+				}
+			},
+		},
+		{
+			name: "present color set",
+			cfg: func() *config.Config {
+				cfg := *baseCfg
+				cfg.Tick.PresentColor = 0x123456
+				return &cfg
+			}(),
+			check: func(t *testing.T, dev *mockDisplayer, c *config.Config) {
+				if got := dev.Leds(0)[6]; got != c.Tick.PresentColor {
+					t.Errorf("present tick led 6 = %#x, want PresentColor %#x", got, c.Tick.PresentColor)
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dev := newMockDisplayer(totalLeds)
+			err := DisplayTime(testTime, tt.cfg, dev)
+			if err != nil {
+				t.Fatalf("DisplayTime() error = %v", err)
+			}
+			if !dev.rendered {
+				t.Error("DisplayTime: expected Render to be called")
+			}
+			tt.check(t, dev, tt.cfg)
+		})
+	}
 }

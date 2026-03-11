@@ -49,7 +49,9 @@ func main() {
 	}
 	defer dev.Fini()
 
-	display.Clear(dev)
+	if err := display.Clear(dev); err != nil {
+		log.Printf("clear display: %v", err)
+	}
 	time.Sleep(time.Second)
 
 	// Run clock until we receive a shutdown signal.
@@ -63,7 +65,9 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	display.Clear(dev)
+	if err := display.Clear(dev); err != nil {
+		log.Printf("clear display: %v", err)
+	}
 	log.Println("cli-clock exiting")
 }
 

@@ -1,6 +1,7 @@
 package display
 
 import (
+	"errors"
 	"math"
 	"time"
 
@@ -21,22 +22,34 @@ type Displayer interface {
 
 // DisplayTime calculates and renders the clock face for a given time.
 // It orchestrates the drawing of tick marks and hour numbers onto the LED strip.
+// cfg and d must be non-nil or DisplayTime will return an error.
 func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
+	if cfg == nil {
+		return errors.New("display: config is nil")
+	}
+	if d == nil {
+		return errors.New("display: Displayer is nil")
+	}
+
 	h := float64(t.Hour())   // 24h format
 	m := float64(t.Minute()) // [0, 59]
 
 	// 1. Calculate time components
 	ticksPerHour := 4.0 // Default to 4 ticks per hour (15 min)
-	if cfg.Tick.TicksPerHour != 0 {
-		ticksPerHour = float64(cfg.Tick.TicksPerHour)
+	ticksPerHourInt := cfg.Tick.TicksPerHour
+	if ticksPerHourInt == 0 {
+		ticksPerHourInt = 4
+	} else {
+		ticksPerHour = float64(ticksPerHourInt)
 	}
 	minPerTick := 60.0 / ticksPerHour
 	minuteTick := math.Floor(m / minPerTick)
+	// lastLed can be negative when time is before StartHour (all ticks appear "future").
 	hourTick := math.Floor((h - float64(cfg.Tick.StartHour)) * ticksPerHour)
 	lastLed := minuteTick + hourTick
 
 	leds := d.Leds(0)
-	numTickLeds := cfg.Tick.NumHours * cfg.Tick.TicksPerHour
+	numTickLeds := cfg.Tick.NumHours * ticksPerHourInt
 
 	// 2. Set tick LEDs
 	setTickLEDs(leds, numTickLeds, int(lastLed), ticksPerHour, cfg, t)
@@ -55,6 +68,11 @@ func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
 
 // setTickLEDs sets the colors for the "tick" portion of the LED strip.
 func setTickLEDs(leds []uint32, numTickLeds, lastLed int, ticksPerHour float64, cfg *config.Config, t time.Time) {
+	ticksPerHourInt := cfg.Tick.TicksPerHour
+	if ticksPerHourInt == 0 {
+		ticksPerHourInt = 4 // avoid division by zero in modulo
+	}
+
 	isAltHour := false
 
 	// Boundary check to prevent panic if configured LEDs exceed available LEDs.
@@ -64,7 +82,7 @@ func setTickLEDs(leds []uint32, numTickLeds, lastLed int, ticksPerHour float64, 
 
 	for i := 0; i < numTickLeds; i++ {
 		// Alternate color scheme for each hour block.
-		if i%cfg.Tick.TicksPerHour == 0 {
+		if i%ticksPerHourInt == 0 {
 			isAltHour = !isAltHour
 		}
 
@@ -103,12 +121,17 @@ func setTickLEDs(leds []uint32, numTickLeds, lastLed int, ticksPerHour float64, 
 
 // setNumberLEDs sets the colors for the "number" or "hour" portion of the LED strip.
 func setNumberLEDs(leds []uint32, numTickLeds, hourTick int, cfg *config.Config) {
+	ticksPerHour := cfg.Tick.TicksPerHour
+	if ticksPerHour == 0 {
+		ticksPerHour = 4 // avoid infinite loop in current-hour block
+	}
+
 	// "Number" LEDs are assumed to be a second logical group of LEDs,
 	// typically after a gap from the tick LEDs.
 	start := numTickLeds + cfg.Gap
 
 	// This assumes the number of "hour" LEDs is the same as tick LEDs.
-	numHourLEDs := cfg.Tick.NumHours * cfg.Tick.TicksPerHour
+	numHourLEDs := cfg.Tick.NumHours * ticksPerHour
 
 	end := start // Used to determine the segment to reverse.
 
@@ -128,12 +151,12 @@ func setNumberLEDs(leds []uint32, numTickLeds, hourTick int, cfg *config.Config)
 			i++
 		default: // i == hourTick, the current hour
 			// Light up a block of LEDs for the current hour.
-			for j := 0; j < cfg.Tick.TicksPerHour; j++ {
+			for j := 0; j < ticksPerHour; j++ {
 				if idx := ledIndex + j; idx < len(leds) {
 					leds[idx] = cfg.Num.PresentColor
 				}
 			}
-			i += cfg.Tick.TicksPerHour
+			i += ticksPerHour
 		}
 	}
 
@@ -142,8 +165,14 @@ func setNumberLEDs(leds []uint32, numTickLeds, hourTick int, cfg *config.Config)
 }
 
 // fade performs linear interpolation between two colors.
-// fraction is from 0.0 to 1.0, controlling the mix.
+// fraction is from 0.0 to 1.0, controlling the mix; values outside are clamped.
 func fade(from, to uint32, fraction float64) uint32 {
+	if fraction <= 0 {
+		return from
+	}
+	if fraction >= 1 {
+		return to
+	}
 	r1, g1, b1 := hexToRGB(from)
 	r2, g2, b2 := hexToRGB(to)
 
@@ -202,11 +231,14 @@ func hexToRGB(c uint32) (uint8, uint8, uint8) {
 	return r, g, b
 }
 
-// Clear turns off all LEDs on the display.
-func Clear(d Displayer) {
+// Clear turns off all LEDs on the display and renders. Returns any error from Render.
+func Clear(d Displayer) error {
+	if d == nil {
+		return errors.New("display: Displayer is nil")
+	}
 	leds := d.Leds(0)
 	for i := range leds {
 		leds[i] = 0x000000
 	}
-	d.Render()
+	return d.Render()
 }

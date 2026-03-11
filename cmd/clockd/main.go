@@ -60,7 +60,9 @@ func main() {
 	defer dev.Fini()
 
 	time.Sleep(500 * time.Millisecond)
-	display.Clear(dev)
+	if err := display.Clear(dev); err != nil {
+		log.Printf("clear display: %v", err)
+	}
 	time.Sleep(500 * time.Millisecond)
 
 	ctx, stop := context.WithCancel(context.Background())
@@ -76,7 +78,9 @@ func main() {
 	log.Print("shutting down...")
 	stop()
 
-	display.Clear(dev)
+	if err := display.Clear(dev); err != nil {
+		log.Printf("clear display: %v", err)
+	}
 	time.Sleep(1 * time.Second)
 	log.Println("done")
 }
