@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/jaredwarren/clock/lib/config"
+	"github.com/jaredwarren/clock/internal/config"
 	"github.com/jaredwarren/clock/lib/display"
 	"github.com/jaredwarren/clock/lib/mock"
 )

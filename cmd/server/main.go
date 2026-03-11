@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/jaredwarren/clock/lib/server"
+	"github.com/jaredwarren/clock/internal/server"
 )
+
+const defaultConfigPath = "config.gob"
 
 func main() {
 	fmt.Println("Starting...")
 
-	s := server.NewServer()
+	s := server.New(defaultConfigPath)
 	http.HandleFunc("GET /", s.Home)
 
 	http.HandleFunc("GET /events", s.ListEvents)

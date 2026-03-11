@@ -5,7 +5,7 @@ After=multi-user.target
 [Service]
 Type=idle
 WorkingDirectory=/home/pi/go/github.com/jaredwarren/clock
-ExecStart=/home/pi/go/github.com/jaredwarren/clock/config-armv7 > /home/pi/config.log 2>&1
+ExecStart=/home/pi/go/github.com/jaredwarren/clock/configd-armv7 > /home/pi/config.log 2>&1
 
 [Install]
 WantedBy=multi-user.target

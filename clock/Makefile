@@ -1,18 +1,15 @@
 .EXPORT_ALL_VARIABLES:
-APP = clock
+APP = clockd
+ROOT = ..
 
 # Variables for deployment locally
 # pi@clock.local
 USER = pi
 HOST = clock.local
 
-.PHONY: gen
-gen:
-	go generate ./...
-
 .PHONY: build
-build: gen check-builder-image
-	docker run --rm -v "$$PWD":/usr/src/$$APP --platform linux/arm/v7 -w /usr/src/$$APP ws2811-builder:latest go build -a -o "$$APP-armv7" -v
+build: check-builder-image
+	docker run --rm -v "$$(cd $(ROOT) && pwd)":/src --platform linux/arm/v7 -w /src ws2811-builder:latest go build -a -o "$$APP-armv7" -v ./cmd/clockd
 
 .PHONY: check-builder-image
 check-builder-image:
@@ -22,14 +19,14 @@ check-builder-image:
 
 .PHONY: build-image
 build-image:
-	docker buildx build --platform linux/arm/v7 --tag ws2811-builder --file docker/app-builder/Dockerfile .
+	docker buildx build --platform linux/arm/v7 --tag ws2811-builder --file docker/app-builder/Dockerfile $(ROOT)
 
 
 .PHONY: clean
 clean:
-	@echo "rm -f $$APP-armv7"
-	@rm -f $$APP-armv7
+	@echo "rm -f $(ROOT)/$$APP-armv7"
+	@rm -f $(ROOT)/$$APP-armv7
 
 .PHONY: push
-push: 
-	scp $$APP-armv7 $$USER@$HOST:/home/pi/go/github.com/jaredwarren/clock/$$APP-armv7
+push:
+	scp $(ROOT)/$$APP-armv7 $$USER@$$HOST:/home/pi/go/github.com/jaredwarren/clock/$$APP-armv7

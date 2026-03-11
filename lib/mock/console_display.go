@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/fatih/color"
-	"github.com/jaredwarren/clock/lib/display"
+	"github.com/jaredwarren/clock/internal/display"
 )
 
 type MockDisplay struct {
