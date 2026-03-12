@@ -128,8 +128,26 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o configd-armv7 -v ./cmd/configd
 
 ## Updating a running Pi
 
-1. **On Pi:** stop the service you’re updating (e.g. `sudo systemctl stop clock.service`).
-2. **On Mac:** build, then copy the new binary (and any changed `templates/` or `public/`) to the Pi.
+**Option A — deploy script (recommended):** From the repo root, run the script for an interactive menu (what to deploy, whether to build, whether to restart):
+
+```bash
+./scripts/deploy.sh              # interactive menu
+./scripts/deploy.sh both         # both clockd and configd (no menu)
+./scripts/deploy.sh clock        # clockd only
+./scripts/deploy.sh config       # configd only
+```
+
+Or via Make (uses `USER` and `HOST` from the Makefile, default `pi@clock.local`):
+
+```bash
+make deploy         # both
+make deploy-clock   # clockd only
+make deploy-config  # configd only
+```
+
+**Option B — manual:**  
+1. **On Pi:** stop the service you’re updating (e.g. `sudo systemctl stop clock.service`).  
+2. **On Mac:** build, then copy the new binary (and any changed `templates/` or `public/`) to the Pi.  
 3. **On Pi:** `sudo systemctl start clock.service` (or `config.service`).
 
 ---

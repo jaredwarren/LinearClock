@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/jaredwarren/clock/internal/server"
@@ -20,7 +20,8 @@ func main() {
 	http.HandleFunc("POST /config", s.UpdateConfig)
 	http.Handle("GET /public/", http.StripPrefix("/public/", http.FileServer(http.Dir("./public"))))
 
-	fmt.Println("Server listening on :8080")
-	http.ListenAndServe(":8080", nil)
-	fmt.Println("Done!")
+	log.Println("Server listening on :8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("server: %v", err)
+	}
 }

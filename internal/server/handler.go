@@ -25,9 +25,9 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	c, err := config.ReadConfig(s.ConfigPath)
 	if err != nil {
 		if errorIsMissing(err) {
-			c = config.DefaultConfig
+			c = config.DefaultConfig.Clone()
 		} else {
-			fmt.Fprintf(w, "get config error:%+v", err)
+			http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -41,12 +41,11 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		"TimeNum":     TimeNum,
 	}).ParseFiles(files...)
 	if err != nil {
-		fmt.Fprintf(w, "parse template error:%+v", err)
+		http.Error(w, "parse template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	err = tmpl.Execute(w, c)
-	if err != nil {
-		fmt.Fprintf(w, "exec temp error:%+v", err)
+	if err := tmpl.Execute(w, c); err != nil {
+		http.Error(w, "exec template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -68,176 +67,157 @@ func errorIsMissing(err error) bool {
 }
 
 func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		fmt.Fprintf(w, "Error parsing form data: %v", err)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	c, err := config.ReadConfig(s.ConfigPath)
 	if err != nil {
 		if errorIsMissing(err) {
-			c = config.DefaultConfig
+			c = config.DefaultConfig.Clone()
 		} else {
-			fmt.Fprintf(w, "get config error:%+v", err)
+			http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
-	fmt.Println("Brightness:" + r.FormValue("brightness"))
-	{
-		i, err := strconv.Atoi(r.FormValue("brightness"))
-		if err != nil {
-			fmt.Fprintf(w, "convert 'brightness' error (%+v):%+v", i, err)
-			return
-		}
+	// Brightness: 0-256 (display uses 0-256 for scale)
+	if i, err := strconv.Atoi(r.FormValue("brightness")); err != nil {
+		http.Error(w, "invalid brightness: "+err.Error(), http.StatusBadRequest)
+		return
+	} else if i < 0 || i > 256 {
+		http.Error(w, "brightness must be 0-256", http.StatusBadRequest)
+		return
+	} else {
 		c.Brightness = i
 	}
 
-	fmt.Println("RefreshRate:" + r.FormValue("refresh-rate"))
-	{
-		i, err := strconv.ParseInt(r.FormValue("refresh-rate"), 10, 64)
-		if err != nil {
-			fmt.Fprintf(w, "convert 'refresh-rate' error (%+v):%+v", i, err)
-			return
-		}
-		if i < 1 || i > 900 {
-			fmt.Fprintf(w, "invalid 'refresh-rate' error (%+v)", i)
-			return
-		}
+	// Refresh rate: 1-900 seconds
+	if i, err := strconv.ParseInt(r.FormValue("refresh-rate"), 10, 64); err != nil {
+		http.Error(w, "invalid refresh-rate: "+err.Error(), http.StatusBadRequest)
+		return
+	} else if i < 1 || i > 900 {
+		http.Error(w, "refresh-rate must be 1-900 seconds", http.StatusBadRequest)
+		return
+	} else {
 		c.RefreshRate = time.Second * time.Duration(i)
 	}
 
-	fmt.Println("Gap:" + r.FormValue("gap"))
-	{
-		i, err := strconv.Atoi(r.FormValue("gap"))
-		if err != nil {
-			fmt.Fprintf(w, "convert 'gap' error (%+v):%+v", i, err)
-			return
-		}
+	// Gap: non-negative, cap at 100
+	if i, err := strconv.Atoi(r.FormValue("gap")); err != nil {
+		http.Error(w, "invalid gap: "+err.Error(), http.StatusBadRequest)
+		return
+	} else if i < 0 || i > 100 {
+		http.Error(w, "gap must be 0-100", http.StatusBadRequest)
+		return
+	} else {
 		c.Gap = i
 	}
 
-	fmt.Println("Tick.StartLed:" + r.FormValue("tick.start-led"))
-	{
-		i, err := strconv.Atoi(r.FormValue("tick.start-led"))
-		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.start-led' error (%+v):%+v", i, err)
-			return
-		}
+	// Tick.StartLed: non-negative
+	if i, err := strconv.Atoi(r.FormValue("tick.start-led")); err != nil {
+		http.Error(w, "invalid tick.start-led: "+err.Error(), http.StatusBadRequest)
+		return
+	} else if i < 0 {
+		http.Error(w, "tick.start-led must be non-negative", http.StatusBadRequest)
+		return
+	} else {
 		c.Tick.StartLed = i
 	}
 
-	fmt.Println("Tick.TicksPerHour:" + r.FormValue("tick.ticks-per-hour"))
-	{
-		i, err := strconv.Atoi(r.FormValue("tick.ticks-per-hour"))
-		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.ticks-per-hour' error (%+v):%+v", i, err)
-			return
-		}
+	// Tick.TicksPerHour: 1-60
+	if i, err := strconv.Atoi(r.FormValue("tick.ticks-per-hour")); err != nil {
+		http.Error(w, "invalid tick.ticks-per-hour: "+err.Error(), http.StatusBadRequest)
+		return
+	} else if i < 1 || i > 60 {
+		http.Error(w, "tick.ticks-per-hour must be 1-60", http.StatusBadRequest)
+		return
+	} else {
 		c.Tick.TicksPerHour = i
 	}
 
-	fmt.Println("Tick.NumHours:" + r.FormValue("tick.num-hours"))
-	{
-		i, err := strconv.Atoi(r.FormValue("tick.num-hours"))
-		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.num-hours' error (%+v):%+v", i, err)
-			return
-		}
+	// Tick.NumHours: 1-24
+	if i, err := strconv.Atoi(r.FormValue("tick.num-hours")); err != nil {
+		http.Error(w, "invalid tick.num-hours: "+err.Error(), http.StatusBadRequest)
+		return
+	} else if i < 1 || i > 24 {
+		http.Error(w, "tick.num-hours must be 1-24", http.StatusBadRequest)
+		return
+	} else {
 		c.Tick.NumHours = i
 	}
 
-	fmt.Println("Tick.StartHour:" + r.FormValue("tick.start-hour"))
-	{
-		i, err := strconv.Atoi(r.FormValue("tick.start-hour"))
-		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.start-hour' error (%+v):%+v", i, err)
-			return
-		}
+	// Tick.StartHour: 0-23 (24h)
+	if i, err := strconv.Atoi(r.FormValue("tick.start-hour")); err != nil {
+		http.Error(w, "invalid tick.start-hour: "+err.Error(), http.StatusBadRequest)
+		return
+	} else if i < 0 || i > 23 {
+		http.Error(w, "tick.start-hour must be 0-23", http.StatusBadRequest)
+		return
+	} else {
 		c.Tick.StartHour = i
 	}
 
-	fmt.Println("Tick.PastColor:" + r.FormValue("tick.past-color"))
-	{
-		v := r.FormValue("tick.past-color")
+	if v := r.FormValue("tick.past-color"); v != "" {
 		color, err := hexStringToUint32(v)
 		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.past-color' error (%s):%+v", v, err)
+			http.Error(w, "tick.past-color: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		c.Tick.PastColor = color
 	}
-
-	fmt.Println("Tick.PresentColor:" + r.FormValue("tick.present-color"))
-	{
-		v := r.FormValue("tick.present-color")
+	if v := r.FormValue("tick.present-color"); v != "" {
 		color, err := hexStringToUint32(v)
 		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.present-color' error (%s):%+v", v, err)
+			http.Error(w, "tick.present-color: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		c.Tick.PresentColor = color
 	}
-
-	fmt.Println("Tick.FutureColor:" + r.FormValue("tick.future-color"))
-	{
-		v := r.FormValue("tick.future-color")
+	if v := r.FormValue("tick.future-color"); v != "" {
 		color, err := hexStringToUint32(v)
 		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.future-color' error (%s):%+v", v, err)
+			http.Error(w, "tick.future-color: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		c.Tick.FutureColor = color
 	}
-
-	fmt.Println("Tick.FutureColorB:" + r.FormValue("tick.future-color-b"))
-	{
-		v := r.FormValue("tick.future-color-b")
+	if v := r.FormValue("tick.future-color-b"); v != "" {
 		color, err := hexStringToUint32(v)
 		if err != nil {
-			fmt.Fprintf(w, "convert 'tick.future-color-b' error (%s):%+v", v, err)
+			http.Error(w, "tick.future-color-b: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		c.Tick.FutureColorB = color
 	}
-
-	fmt.Println("Num.PastColor:" + r.FormValue("num.past-color"))
-	{
-		v := r.FormValue("num.past-color")
+	if v := r.FormValue("num.past-color"); v != "" {
 		color, err := hexStringToUint32(v)
 		if err != nil {
-			fmt.Fprintf(w, "convert 'num.past-color' error (%s):%+v", v, err)
+			http.Error(w, "num.past-color: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		c.Num.PastColor = color
 	}
-
-	fmt.Println("Num.PresentColor:" + r.FormValue("num.present-color"))
-	{
-		v := r.FormValue("num.present-color")
+	if v := r.FormValue("num.present-color"); v != "" {
 		color, err := hexStringToUint32(v)
 		if err != nil {
-			fmt.Fprintf(w, "convert 'num.present-color' error (%s):%+v", v, err)
+			http.Error(w, "num.present-color: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		c.Num.PresentColor = color
 	}
-
-	fmt.Println("Num.FutureColor:" + r.FormValue("num.future-color"))
-	{
-		v := r.FormValue("num.future-color")
+	if v := r.FormValue("num.future-color"); v != "" {
 		color, err := hexStringToUint32(v)
 		if err != nil {
-			fmt.Fprintf(w, "convert 'num.future-color' error (%s):%+v", v, err)
+			http.Error(w, "num.future-color: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		c.Num.FutureColor = color
 	}
 
-	err = config.WriteConfig(s.ConfigPath, c)
-	if err != nil {
-		fmt.Fprintf(w, "write config error :%+v", err)
+	if err := config.WriteConfig(s.ConfigPath, c); err != nil {
+		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -246,6 +226,9 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 func hexStringToUint32(hexStr string) (uint32, error) {
 	hexStr = strings.TrimPrefix(hexStr, "#")
+	if len(hexStr) < 6 {
+		return 0, fmt.Errorf("color hex string too short: %q (need 6 hex digits)", hexStr)
+	}
 
 	r, err := strconv.ParseUint(hexStr[0:2], 16, 8)
 	if err != nil {

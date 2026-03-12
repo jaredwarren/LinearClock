@@ -1,9 +1,9 @@
 package server
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -14,15 +14,21 @@ type Event struct {
 }
 
 // Events is the in-memory event list (for demo; replace with persistence later).
-var Events = []*Event{}
+var (
+	events   = []*Event{}
+	eventsMu sync.RWMutex
+)
 
 func (s *Server) ListEvents(w http.ResponseWriter, r *http.Request) {
-	if len(Events) == 0 {
-		Events = append(Events, &Event{
+	eventsMu.Lock()
+	if len(events) == 0 {
+		events = append(events, &Event{
 			Time:  time.Now(),
 			Color: 0xFF0000,
 		})
 	}
+	snapshot := append([]*Event(nil), events...)
+	eventsMu.Unlock()
 
 	files := []string{
 		"templates/events.html",
@@ -33,53 +39,48 @@ func (s *Server) ListEvents(w http.ResponseWriter, r *http.Request) {
 		"TimeFormat":  TimeFormat,
 	}).ParseFiles(files...)
 	if err != nil {
-		fmt.Fprintf(w, "parse template error:%+v", err)
+		http.Error(w, "parse template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	err = tmpl.Execute(w, Events)
-	if err != nil {
-		fmt.Fprintf(w, "exec temp error:%+v", err)
+	if err := tmpl.Execute(w, snapshot); err != nil {
+		http.Error(w, "exec template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
 func (s *Server) UpdateEvents(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		fmt.Fprintf(w, "Error parsing form data: %v", err)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	fmt.Printf("~~~~~~~~~~~~~~~\n %+v\n\n", r.Form)
-
 	e := &Event{}
 
-	{
-		dateTimeStr := r.FormValue("event.time")
-		fmt.Println("Received datetime:", dateTimeStr)
-		dateTime, err := time.Parse("2006-01-02T15:04", dateTimeStr)
-		if err != nil {
-			http.Error(w, "Error parsing datetime", http.StatusBadRequest)
-			return
-		}
-		fmt.Println("Parsed datetime:", dateTime)
-		e.Time = dateTime
+	dateTimeStr := r.FormValue("event.time")
+	dateTime, err := time.Parse("2006-01-02T15:04", dateTimeStr)
+	if err != nil {
+		http.Error(w, "invalid event.time: "+err.Error(), http.StatusBadRequest)
+		return
 	}
+	e.Time = dateTime
 
-	fmt.Println("Num.PresentColor:" + r.FormValue("event.color"))
-	{
-		v := r.FormValue("event.color")
-		color, err := hexStringToUint32(v)
-		if err != nil {
-			fmt.Fprintf(w, "convert 'num.present-color' error (%s):%+v", v, err)
-			return
-		}
-		e.Color = color
+	v := r.FormValue("event.color")
+	color, err := hexStringToUint32(v)
+	if err != nil {
+		http.Error(w, "event.color: "+err.Error(), http.StatusBadRequest)
+		return
 	}
+	e.Color = color
 
-	Events = append(Events, e)
+	eventsMu.Lock()
+	events = append(events, e)
+	eventsMu.Unlock()
 
 	http.Redirect(w, r, "/events", http.StatusSeeOther)
 }
 
-func (s *Server) DeleteEvent(w http.ResponseWriter, r *http.Request) {}
+func (s *Server) DeleteEvent(w http.ResponseWriter, r *http.Request) {
+	eventsMu.Lock()
+	defer eventsMu.Unlock()
+	// TODO: parse event_id from path and remove from events
+}

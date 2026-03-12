@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -13,28 +12,26 @@ func (s *Server) TestHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := config.ReadConfig(s.ConfigPath)
 	if err != nil {
 		if errorIsMissing(err) {
-			c = config.DefaultConfig
+			c = config.DefaultConfig.Clone()
 		} else {
-			fmt.Fprintf(w, "get config error:%+v", err)
+			http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
 	t := time.Now()
-
-	to := r.URL.Query().Get("time-override")
-	if to != "" {
-		t, err = time.Parse("15:04", to)
-		if err != nil {
-			fmt.Fprintf(w, "time error:%+v", err)
+	if to := r.URL.Query().Get("time-override"); to != "" {
+		var parseErr error
+		t, parseErr = time.Parse("15:04", to)
+		if parseErr != nil {
+			http.Error(w, "time-override: "+parseErr.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 
 	hd := display.NewHTMLDisplay(c, w, t)
-	err = display.DisplayTime(t, c, hd)
-	if err != nil {
-		fmt.Fprintf(w, "render error:%+v", err)
+	if err := display.DisplayTime(t, c, hd); err != nil {
+		http.Error(w, "render: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 }

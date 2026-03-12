@@ -8,7 +8,7 @@ import (
 )
 
 type Config struct {
-	Version int // config schema version for future migrations
+	Version     int // config schema version for future migrations
 	DisplayMode string
 	// general
 	Brightness  int
@@ -27,6 +27,8 @@ type TickConfig struct {
 	PresentColor uint32
 	FutureColor  uint32
 	FutureColorB uint32
+
+	// Hardware specific configuration
 	StartHour    int // 24h time
 	StartLed     int
 	TicksPerHour int
@@ -85,11 +87,26 @@ func ReadConfig(filepath string) (*Config, error) {
 	return &config, nil
 }
 
+// Clone returns a deep copy of c. Returns nil if c is nil.
+func (c *Config) Clone() *Config {
+	if c == nil {
+		return nil
+	}
+	return &Config{
+		Version:     c.Version,
+		DisplayMode: c.DisplayMode,
+		Brightness:  c.Brightness,
+		RefreshRate: c.RefreshRate,
+		Tick:        c.Tick,
+		Num:         c.Num,
+		Gap:         c.Gap,
+	}
+}
+
 func WriteConfig(filepath string, c *Config) error {
-	// File does not exist, create it
 	file, err := os.Create(filepath)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("create config file: %w", err)
 	}
 	defer file.Close()
 
@@ -100,4 +117,3 @@ func WriteConfig(filepath string, c *Config) error {
 	}
 	return nil
 }
-

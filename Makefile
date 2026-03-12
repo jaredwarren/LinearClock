@@ -2,6 +2,8 @@
 # Binaries: clockd (LED clock), configd (config HTTP server)
 USER = pi
 HOST = clock.local
+# SSH user for deploy script (script uses DEPLOY_USER to avoid shell USER)
+DEPLOY_USER = pi
 
 .PHONY: build-clockd build-configd build-all
 build-clockd:
@@ -27,6 +29,15 @@ clean:
 .PHONY: push
 push: build-clockd-arm build-configd-arm
 	scp clockd-armv7 configd-armv7 $$USER@$$HOST:/home/pi/go/github.com/jaredwarren/clock/
+
+# Deploy: build, rsync to Pi, restart systemd (see scripts/deploy.sh --help)
+.PHONY: deploy deploy-clock deploy-config
+deploy:
+	./scripts/deploy.sh both
+deploy-clock:
+	./scripts/deploy.sh clock
+deploy-config:
+	./scripts/deploy.sh config
 
 .PHONY: test
 test:
