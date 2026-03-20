@@ -11,6 +11,15 @@
             height: 42px;
             font-weight: bold;
         }
+        .preview-table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+        .tick-cell {
+            border: 1px solid lightgray;
+            height: 32px;
+        }
     </style>
     <!-- <input type="time" id="appt" name="appt" min="09:00" max="18:00"  /> -->
      <!-- TODO: get and set min, max times based on config -->
@@ -24,7 +33,7 @@
 
      </form>
 
-    <table>
+    <table class="preview-table">
         <tr>
             {{range $index, $n := .Nums}}
                 <td colspan="4" class="num-tick" style="color: {{$n.Color}};">{{$n.Hour}}</td>
@@ -32,7 +41,7 @@
         </tr>
         <tr>
             {{range $index, $t := .Ticks}}
-                <td style="background-color: {{$t}}; border: 1px solid lightgray;">&nbsp;</td>
+                <td class="tick-cell" style="background-color: {{$t}};">&nbsp;</td>
             {{end}}
         </tr>
     </table>
