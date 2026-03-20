@@ -91,29 +91,39 @@ func startClock(ctx context.Context, dev display.Displayer, initialCfg *config.C
 	}
 
 	cfg := initialCfg
-	ticker := time.NewTicker(cfg.RefreshRate)
-	defer ticker.Stop()
 
 	for {
-		select {
-		case <-ticker.C:
-			log.Println("tick:", time.Now())
-			if err := display.DisplayTime(time.Now(), cfg, dev); err != nil {
-				log.Printf("display time error: %v", err)
-				return
-			}
+		now := time.Now()
+		if err := display.DisplayTime(now, cfg, dev); err != nil {
+			log.Printf("display time error: %v", err)
+			return
+		}
 
-			if nc, err := config.ReadConfig(configFile); err == nil {
-				if nc.RefreshRate != cfg.RefreshRate {
-					ticker.Reset(nc.RefreshRate)
-				}
-				cfg = nc
-			} else {
-				log.Printf("could not refresh config, using old: %v", err)
-			}
+		if nc, err := config.ReadConfig(configFile); err == nil {
+			cfg = nc
+		} else {
+			log.Printf("could not refresh config, using old: %v", err)
+		}
+
+		interval := cfg.RefreshRate
+		if interval <= 0 {
+			interval = time.Second
+		}
+
+		// Align to the next refresh boundary to avoid cumulative sleep/ticker drift.
+		next := now.Truncate(interval).Add(interval)
+		wait := time.Until(next)
+		if wait < 0 {
+			wait = interval
+		}
+		timer := time.NewTimer(wait)
+
+		select {
 		case <-ctx.Done():
+			timer.Stop()
 			log.Println("stopping clock.")
 			return
+		case <-timer.C:
 		}
 	}
 }

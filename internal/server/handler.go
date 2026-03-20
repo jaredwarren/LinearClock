@@ -24,7 +24,11 @@ func New(configPath string) *Server {
 // homePageData is passed to the home template: NavActive drives the shared nav; *config.Config is embedded
 // so existing templates can keep using {{.Brightness}}, {{.Tick}}, etc.
 type homePageData struct {
-	NavActive string
+	NavActive          string
+	TickLedCount       int
+	NumberLedCount     int
+	RequiredStripLeds  int
+	ClockdAllocatedLeds int
 	*config.Config
 }
 
@@ -51,7 +55,16 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "parse template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.Execute(w, homePageData{NavActive: "config", Config: c}); err != nil {
+	tickCount := c.Tick.NumHours * c.Tick.TicksPerHour
+	data := homePageData{
+		NavActive:           "config",
+		TickLedCount:        tickCount,
+		NumberLedCount:      tickCount,
+		RequiredStripLeds:   tickCount*2 + c.Gap,
+		ClockdAllocatedLeds: tickCount*2 + c.Gap,
+		Config:              c,
+	}
+	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "exec template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -241,6 +254,33 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		c.Tick.StartHour = i
+	}
+
+	// Optional transition rendering controls.
+	c.Tick.TransitionEnabled = r.FormValue("tick.transition-enabled") == "on"
+	if v, ok := r.Form["tick.transition-duration-ms"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		i, err := strconv.Atoi(v[0])
+		if err != nil {
+			http.Error(w, "invalid tick.transition-duration-ms: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if i < 0 || i > 2000 {
+			http.Error(w, "tick.transition-duration-ms must be 0-2000", http.StatusBadRequest)
+			return
+		}
+		c.Tick.TransitionDurationMs = i
+	}
+	if v, ok := r.Form["tick.transition-max-steps"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		i, err := strconv.Atoi(v[0])
+		if err != nil {
+			http.Error(w, "invalid tick.transition-max-steps: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if i < 1 || i > 12 {
+			http.Error(w, "tick.transition-max-steps must be 1-12", http.StatusBadRequest)
+			return
+		}
+		c.Tick.TransitionMaxSteps = i
 	}
 
 	if v := r.FormValue("tick.past-color"); v != "" {

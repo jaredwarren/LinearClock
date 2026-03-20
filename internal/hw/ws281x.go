@@ -32,7 +32,10 @@ func (d *ws2811Display) Render() error {
 func NewLedDisplay(c *config.Config) (display.Displayer, error) {
 	opt := ws2811.DefaultOptions
 	opt.Channels[0].Brightness = c.Brightness
-	numLeds := (c.Tick.NumHours * c.Tick.TicksPerHour) * 2
+	numLeds := (c.Tick.NumHours * c.Tick.TicksPerHour * 2) + c.Gap
+	if numLeds < 1 {
+		numLeds = 1
+	}
 	opt.Channels[0].LedCount = numLeds
 	dev, err := ws2811.MakeWS2811(&opt)
 	if err != nil {

@@ -250,6 +250,45 @@
                                 </span>
                             </div>
                         </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <div class="alert alert-secondary py-2 mb-0">
+                                    <strong>Layout preview:</strong>
+                                    Tick LEDs = <strong>{{.TickLedCount}}</strong>,
+                                    Number LEDs = <strong>{{.NumberLedCount}}</strong>,
+                                    Gap = <strong>{{.Gap}}</strong>,
+                                    Required strip LEDs = <strong>{{.RequiredStripLeds}}</strong>.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3 mt-3">
+                            <div class="col">
+                                <h5 class="mb-0">Transition</h5>
+                                <div class="form-text">
+                                    Optional fade between frames. Keep duration and steps low for Raspberry Pi performance.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-md-4">
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="inputTransitionEnabled" name="tick.transition-enabled" {{if .Tick.TransitionEnabled}}checked{{end}}>
+                                    <label class="form-check-label" for="inputTransitionEnabled">
+                                        Enable transition fade
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="inputTransitionDurationMs" class="form-label">Duration (ms)</label>
+                                <input value="{{.Tick.TransitionDurationMs}}" id="inputTransitionDurationMs" type="number"
+                                    name="tick.transition-duration-ms" min="0" max="2000" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="inputTransitionMaxSteps" class="form-label">Max steps</label>
+                                <input value="{{.Tick.TransitionMaxSteps}}" id="inputTransitionMaxSteps" type="number"
+                                    name="tick.transition-max-steps" min="1" max="12" class="form-control">
+                            </div>
+                        </div>
 
                         <div class="row mb-3 mt-4">
                             <div class="col">

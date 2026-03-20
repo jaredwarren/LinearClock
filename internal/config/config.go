@@ -84,6 +84,11 @@ type TickConfig struct {
 	Mode    string // "count down", "count up", "time", etc
 	Reverse bool   // increment up or down each tick
 
+	// Optional transition rendering between updates.
+	TransitionEnabled    bool
+	TransitionDurationMs int // total transition time in milliseconds
+	TransitionMaxSteps   int // safety cap for interpolation steps
+
 	// Events override tick colors in order when active
 	Events []TickEvent
 }
@@ -121,6 +126,10 @@ var DefaultConfig = &Config{
 		Reverse:      false,
 		TicksPerHour: 4,
 		NumHours:     6,
+		// Disabled by default for low-overhead behavior.
+		TransitionEnabled:    false,
+		TransitionDurationMs: 0,
+		TransitionMaxSteps:   6,
 	},
 	Num: NumConfig{
 		PastColor:    0xffff00,

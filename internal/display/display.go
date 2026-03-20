@@ -49,6 +49,7 @@ func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
 	lastLed := minuteTick + hourTick
 
 	leds := d.Leds(0)
+	prev := append([]uint32(nil), leds...)
 	numTickLeds := cfg.Tick.NumHours * ticksPerHourInt
 
 	// 2. Set tick LEDs (event overrides apply only to ticks whose time block overlaps the event)
@@ -60,8 +61,40 @@ func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
 	// 5. Apply global brightness
 	applyBrightness(leds, cfg.Brightness)
 
-	// 6. Render to device
-	return d.Render()
+	// 6. Render to device, with optional transition interpolation.
+	if !cfg.Tick.TransitionEnabled || cfg.Tick.TransitionDurationMs <= 0 {
+		return d.Render()
+	}
+
+	target := append([]uint32(nil), leds...)
+	steps := normalizedTransitionSteps(cfg.Tick.TransitionMaxSteps)
+	stepDelay := time.Duration(cfg.Tick.TransitionDurationMs) * time.Millisecond / time.Duration(steps)
+
+	// Interpolate from the previous frame to the target frame.
+	for step := 1; step <= steps; step++ {
+		fraction := float64(step) / float64(steps)
+		for i := range leds {
+			leds[i] = fade(prev[i], target[i], fraction)
+		}
+		if err := d.Render(); err != nil {
+			return err
+		}
+		if step < steps && stepDelay > 0 {
+			time.Sleep(stepDelay)
+		}
+	}
+
+	return nil
+}
+
+func normalizedTransitionSteps(v int) int {
+	if v <= 0 {
+		return 1
+	}
+	if v > 12 { // keep CPU safe on Pi-class devices
+		return 12
+	}
+	return v
 }
 
 // effectiveTickColors holds the resolved tick colors (base + event overrides).
