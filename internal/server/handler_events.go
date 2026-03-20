@@ -144,6 +144,10 @@ func (s *Server) UpdateEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.Tick.Events = append(c.Tick.Events, evt)
+	if err := c.Validate(); err != nil {
+		http.Error(w, "invalid config: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
 		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -277,6 +281,10 @@ func (s *Server) EditEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.Tick.Events = events
+	if err := c.Validate(); err != nil {
+		http.Error(w, "invalid config: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
 		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -301,6 +309,10 @@ func (s *Server) deleteEventByID(w http.ResponseWriter, r *http.Request, id stri
 		}
 	}
 	c.Tick.Events = newEvents
+	if err := c.Validate(); err != nil {
+		http.Error(w, "invalid config: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
 		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -351,6 +363,10 @@ func moveEventByIndex(w http.ResponseWriter, r *http.Request, s *Server, from, t
 	}
 	events[from], events[to] = events[to], events[from]
 	c.Tick.Events = events
+	if err := c.Validate(); err != nil {
+		http.Error(w, "invalid config: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
 		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 		return

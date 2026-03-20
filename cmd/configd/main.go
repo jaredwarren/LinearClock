@@ -16,12 +16,15 @@ const defaultConfigPath = "config.gob"
 
 func main() {
 	s := server.New(defaultConfigPath)
+	if _, err := config.TryReadWithBackupRollback(s.ConfigPath); err != nil {
+		log.Printf("startup config read/rollback failed; proceeding with defaults until config is repaired: %v", err)
+	}
 
 	ctx := context.Background()
 	go func() {
 		for {
 			// Reload config each cycle so poll interval / lookback / lookahead changes apply immediately.
-			c, err := config.ReadConfig(s.ConfigPath)
+			c, err := config.TryReadWithBackupRollback(s.ConfigPath)
 			if err != nil {
 				c = config.DefaultConfig.Clone()
 			}
@@ -31,7 +34,9 @@ func main() {
 				events, err := calendar.SyncICalToTickEvents(ctx, c, time.Now())
 				if err == nil {
 					c.Tick.Events = events
-					_ = server.WriteConfigLocked(s.ConfigPath, c)
+					if err := c.Validate(); err == nil {
+						_ = server.WriteConfigLocked(s.ConfigPath, c)
+					}
 				}
 			}
 

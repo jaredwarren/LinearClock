@@ -2,10 +2,14 @@ package config
 
 import (
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
+
+const CurrentConfigVersion = 3
 
 type Config struct {
 	Version     int // config schema version for future migrations
@@ -104,7 +108,7 @@ type NumConfig struct {
 }
 
 var DefaultConfig = &Config{
-	Version:     2,
+	Version:     CurrentConfigVersion,
 	RefreshRate: 1 * time.Minute,
 	Brightness:  128,
 	Calendar: CalendarConfig{
@@ -153,6 +157,11 @@ func ReadConfig(filepath string) (*Config, error) {
 		return nil, err
 	}
 
+	config.Migrate()
+	if err := config.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
+	}
+
 	return &config, nil
 }
 
@@ -181,6 +190,15 @@ func (c *Config) Clone() *Config {
 }
 
 func WriteConfig(filepath string, c *Config) error {
+	if c == nil {
+		return errors.New("config is nil")
+	}
+	c = c.Clone()
+	c.Migrate()
+	if err := c.Validate(); err != nil {
+		return fmt.Errorf("validate config: %w", err)
+	}
+
 	// Write atomically so readers won't observe partial gob data.
 	// This matters once configd starts a periodic sync loop that overwrites Tick.Events.
 	tmpPath := filepath + ".tmp"
@@ -204,6 +222,144 @@ func WriteConfig(filepath string, c *Config) error {
 	if err := os.Rename(tmpPath, filepath); err != nil {
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("rename temp config file: %w", err)
+	}
+
+	// Keep a last-known-good backup for startup rollback.
+	_ = copyFile(filepath, backupPath(filepath))
+
+	return nil
+}
+
+func backupPath(path string) string {
+	return path + ".bak"
+}
+
+// TryReadWithBackupRollback reads config from path. If decode/validation fails,
+// it attempts to restore from path+".bak" and re-read.
+func TryReadWithBackupRollback(path string) (*Config, error) {
+	c, err := ReadConfig(path)
+	if err == nil {
+		return c, nil
+	}
+	if restoreErr := RestoreBackup(path); restoreErr != nil {
+		return nil, fmt.Errorf("read config failed: %w; restore backup failed: %v", err, restoreErr)
+	}
+	return ReadConfig(path)
+}
+
+// RestoreBackup restores path from path+".bak".
+func RestoreBackup(path string) error {
+	bak := backupPath(path)
+	if _, err := os.Stat(bak); err != nil {
+		return fmt.Errorf("backup missing: %w", err)
+	}
+	if err := copyFile(bak, path); err != nil {
+		return fmt.Errorf("copy backup to config: %w", err)
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0o644)
+}
+
+// Migrate applies schema defaults/adjustments for older config versions.
+func (c *Config) Migrate() {
+	if c == nil {
+		return
+	}
+	if c.Version <= 0 {
+		c.Version = 1
+	}
+
+	// Common defaults that keep old gobs operational.
+	if c.RefreshRate <= 0 {
+		c.RefreshRate = DefaultConfig.RefreshRate
+	}
+	if c.Tick.TicksPerHour <= 0 {
+		c.Tick.TicksPerHour = DefaultConfig.Tick.TicksPerHour
+	}
+	if c.Tick.NumHours <= 0 {
+		c.Tick.NumHours = DefaultConfig.Tick.NumHours
+	}
+	if c.Calendar.PollIntervalSeconds <= 0 {
+		c.Calendar.PollIntervalSeconds = DefaultConfig.Calendar.PollIntervalSeconds
+	}
+	if c.Calendar.LookbackDays < 0 {
+		c.Calendar.LookbackDays = DefaultConfig.Calendar.LookbackDays
+	}
+	if c.Calendar.LookaheadDays < 0 {
+		c.Calendar.LookaheadDays = DefaultConfig.Calendar.LookaheadDays
+	}
+	if c.Tick.TransitionMaxSteps <= 0 {
+		c.Tick.TransitionMaxSteps = DefaultConfig.Tick.TransitionMaxSteps
+	}
+	if c.Tick.TransitionDurationMs < 0 {
+		c.Tick.TransitionDurationMs = 0
+	}
+
+	if c.Version < CurrentConfigVersion {
+		c.Version = CurrentConfigVersion
+	}
+}
+
+// Validate centralizes config validation for handlers/startup/sync loops.
+func (c *Config) Validate() error {
+	if c == nil {
+		return errors.New("config is nil")
+	}
+	if c.Brightness < 0 || c.Brightness > 256 {
+		return fmt.Errorf("brightness must be 0-256")
+	}
+	if c.RefreshRate < time.Second || c.RefreshRate > 900*time.Second {
+		return fmt.Errorf("refresh-rate must be 1-900 seconds")
+	}
+	if c.Gap < 0 || c.Gap > 100 {
+		return fmt.Errorf("gap must be 0-100")
+	}
+	if c.Tick.StartLed < 0 {
+		return fmt.Errorf("tick.start-led must be non-negative")
+	}
+	if c.Tick.TicksPerHour < 1 || c.Tick.TicksPerHour > 60 {
+		return fmt.Errorf("tick.ticks-per-hour must be 1-60")
+	}
+	if c.Tick.NumHours < 1 || c.Tick.NumHours > 24 {
+		return fmt.Errorf("tick.num-hours must be 1-24")
+	}
+	if c.Tick.StartHour < 0 || c.Tick.StartHour > 23 {
+		return fmt.Errorf("tick.start-hour must be 0-23")
+	}
+	if c.Calendar.PollIntervalSeconds < 10 || c.Calendar.PollIntervalSeconds > 86400 {
+		return fmt.Errorf("calendar.poll-interval-seconds must be 10-86400")
+	}
+	if c.Calendar.LookbackDays < 0 || c.Calendar.LookbackDays > 365 {
+		return fmt.Errorf("calendar.lookback-days must be 0-365")
+	}
+	if c.Calendar.LookaheadDays < 0 || c.Calendar.LookaheadDays > 365 {
+		return fmt.Errorf("calendar.lookahead-days must be 0-365")
+	}
+	if c.Tick.TransitionDurationMs < 0 || c.Tick.TransitionDurationMs > 2000 {
+		return fmt.Errorf("tick.transition-duration-ms must be 0-2000")
+	}
+	if c.Tick.TransitionMaxSteps < 1 || c.Tick.TransitionMaxSteps > 12 {
+		return fmt.Errorf("tick.transition-max-steps must be 1-12")
+	}
+
+	for i := range c.Tick.Events {
+		e := c.Tick.Events[i]
+		if e.End.Before(e.Start) {
+			return fmt.Errorf("event[%d]: end before start", i)
+		}
+		if e.Repeat != RepeatNone && e.Repeat != RepeatDaily {
+			return fmt.Errorf("event[%d]: invalid repeat %q", i, e.Repeat)
+		}
 	}
 
 	return nil

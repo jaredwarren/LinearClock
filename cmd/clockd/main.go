@@ -43,10 +43,10 @@ func main() {
 	flag.Parse()
 
 	log.Println("starting...")
-	c, err := config.ReadConfig(*configFile)
+	c, err := config.TryReadWithBackupRollback(*configFile)
 	if err != nil {
 		log.Printf("read config error, using default: %v", err)
-		c = defaultCfg
+		c = defaultCfg.Clone()
 	}
 
 	dev, err := hw.NewLedDisplay(c)

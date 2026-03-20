@@ -340,6 +340,10 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		c.Num.FutureColor = color
 	}
 
+	if err := c.Validate(); err != nil {
+		http.Error(w, "invalid config: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
 		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 		return
