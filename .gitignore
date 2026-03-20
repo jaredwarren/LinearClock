@@ -1,0 +1,8 @@
+notes.md
+test-armv7
+.DS_Store
+*.gob
+*-armv7
+configd
+clockd
+*.exe
