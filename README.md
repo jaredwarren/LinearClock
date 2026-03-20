@@ -124,6 +124,34 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o configd-armv7 -v ./cmd/configd
 - **configd** (run locally): `go run ./cmd/configd` (serve from repo root so `templates/` and `public/` resolve).
 - **cli-clock** (mock display in terminal): `go run ./cmd/cli-clock`.
 
+### Verify before deploy
+
+Run the pre-deploy verification target:
+
+```bash
+make verify
+```
+
+`make verify` runs selected package tests, a template parse smoke test, and `go vet` on the core runtime packages.
+
+### Release package (`dist/`)
+
+Build ARM binaries, package runtime assets, and generate checksums:
+
+```bash
+make release-dist
+```
+
+This creates:
+
+- `dist/clockd-armv7`
+- `dist/configd-armv7`
+- `dist/clock.service`
+- `dist/config.service`
+- `dist/templates/`
+- `dist/public/`
+- `dist/SHA256SUMS` (SHA256 for both binaries)
+
 ---
 
 ## Updating a running Pi
@@ -200,4 +228,5 @@ Use the table on the Events page to reorder (up/down), delete, or add events wit
 
 - **SSH to Pi:** `ssh pi@clock.local`
 - **Restart services:** `sudo systemctl restart clock.service` or `sudo systemctl restart config.service`
+- **Config daemon source:** `cmd/configd/main.go`
 - **Notes and design ideas:** see `notes.md`
