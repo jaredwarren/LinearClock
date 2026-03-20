@@ -9,7 +9,9 @@ require (
 )
 
 require (
+	github.com/arran4/golang-ical v0.3.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/graham/rrule v0.0.0-20230601170954-d30ed24b726c // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

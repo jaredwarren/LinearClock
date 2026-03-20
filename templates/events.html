@@ -1,88 +1,230 @@
 {{template "base" .}}
 
-{{define "title"}}Clock Config{{end}}
-
-{{define "nav"}}
-<div class="container-fluid">
-    <ul class="nav nav-pills">
-        <li class="nav-item">
-            <a class="nav-link" href="/"><span class="material-symbols-outlined align-middle">settings</span>
-                <span>Config</span></a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/test"><span class="material-symbols-outlined align-middle">
-                    preview
-                </span>
-                <span>Preview</span></a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link disabled" href="#"><span class="material-symbols-outlined align-middle">
-                    date_range
-                </span>
-                <span>Event</span></a>
-        </li>
-        <!-- <li class="nav-item">
-            <a class="nav-link" href="/config"><span class="material-symbols-outlined align-middle">settings</span>
-                <span class="align-middle"></span></a>
-        </li> -->
-    </ul>
-</div>
-{{end}}
+{{define "title"}}Events{{end}}
 
 {{define "main"}}
 <div class="container my-5">
-    <table>
-        {{range $index, $s := .}}
-        <tr>
-            <td>
-                <input value="{{TimeFormat $s.Time}}" readonly type="datetime-local" class="form-control">
-            </td>
-            </td>
-            <td><input value="{{ColorString $s.Color}}" readonly type="color" style="width: 100px;"
-                    class="form-control" ></td>
-            <td>
-            <td>
-                <button onclick="confirm('are you sure')">X</button>
-                TODO: add delete here
-            </td>
-        </tr>
-        {{end}}
+    {{if and .Config (ne .Config.Calendar.ICalURL "")}}
+    <div class="alert alert-warning mb-4">
+        iCal sync is enabled: iCal-generated events will be regenerated periodically and will overwrite the manual event list.
+    </div>
+    {{end}}
+    <p class="text-muted">Events override tick colors (Past, Present, Future, Future B) when active. Order matters: later events override earlier ones. One-time events run only on the start date; daily events repeat every day by time-of-day.</p>
+
+    <table class="table table-sm table-bordered align-middle mb-4">
+        <thead>
+            <tr>
+                <th>Order</th>
+                <th>Title</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Repeat</th>
+                <th>Color overrides</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $index, $e := .Events}}
+            <tr>
+                <td>
+                    <form action="/events/move-up" method="POST" class="d-inline">
+                        <input type="hidden" name="index" value="{{$index}}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" {{if eq $index 0}}disabled{{end}} aria-label="Move up">&#9650;</button>
+                    </form>
+                    <form action="/events/move-down" method="POST" class="d-inline">
+                        <input type="hidden" name="index" value="{{$index}}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" {{if eq $index $.LastIndex}}disabled{{end}} aria-label="Move down">&#9660;</button>
+                    </form>
+                </td>
+                <td>{{$e.Title}}</td>
+                <td>{{TimeFormat $e.Start}}</td>
+                <td>{{TimeFormat $e.End}}</td>
+                <td>{{if eq $e.Repeat "daily"}}Daily{{else}}One-time{{end}}</td>
+                <td>
+                    {{if ne $e.PastColorOverride 0}}<span class="badge rounded-pill" style="background: {{ColorString $e.PastColorOverride}}">Past</span>{{end}}
+                    {{if ne $e.PresentColorOverride 0}}<span class="badge rounded-pill" style="background: {{ColorString $e.PresentColorOverride}}">Present</span>{{end}}
+                    {{if ne $e.FutureColorOverride 0}}<span class="badge rounded-pill" style="background: {{ColorString $e.FutureColorOverride}}">Future</span>{{end}}
+                    {{if ne $e.FutureColorBOverride 0}}<span class="badge rounded-pill" style="background: {{ColorString $e.FutureColorBOverride}}">Future B</span>{{end}}
+                    {{if and (eq $e.PastColorOverride 0) (eq $e.PresentColorOverride 0) (eq $e.FutureColorOverride 0) (eq $e.FutureColorBOverride 0)}}<span class="text-muted">—</span>{{end}}
+                </td>
+                <td>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary me-1"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editEventModal"
+                            data-event-id="{{$e.ID}}"
+                            data-title="{{$e.Title}}"
+                            data-start="{{TimeFormat $e.Start}}"
+                            data-end="{{TimeFormat $e.End}}"
+                            data-repeat="{{$e.Repeat}}"
+                            data-past-color="{{if ne $e.PastColorOverride 0}}{{ColorString $e.PastColorOverride}}{{end}}"
+                            data-present-color="{{if ne $e.PresentColorOverride 0}}{{ColorString $e.PresentColorOverride}}{{end}}"
+                            data-future-color="{{if ne $e.FutureColorOverride 0}}{{ColorString $e.FutureColorOverride}}{{end}}"
+                            data-future-color-b="{{if ne $e.FutureColorBOverride 0}}{{ColorString $e.FutureColorBOverride}}{{end}}">
+                        Edit
+                    </button>
+                    <form action="/events/delete" method="POST" class="d-inline" onsubmit="return confirm('Delete this event?');">
+                        <input type="hidden" name="event_id" value="{{$e.ID}}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="7" class="text-muted">No events. Add one below.</td></tr>
+            {{end}}
+        </tbody>
     </table>
+
     <hr>
-    <form action="/events" method="POST">
-        <div class="row g-3 align-items-center">
-            <div class="col">
-                <label for="inputEventColor" class="col-form-label">Color</label>
+
+    <h5>Add event</h5>
+    <form action="/events" method="POST" class="mb-4">
+        <div class="row g-3 mb-2">
+            <div class="col-md-4">
+                <label for="event-title" class="form-label">Title</label>
+                <input type="text" name="event.title" id="event-title" class="form-control" placeholder="e.g. Meeting">
             </div>
-            <div class="col">
-                <input name="event.color" type="color" style="width: 100px;" id="inputEventColor"
-                    class="form-control" >
+            <div class="col-md-2">
+                <label for="event-start" class="form-label">Start</label>
+                <input type="datetime-local" name="event.start" id="event-start" class="form-control" required>
             </div>
-            <!-- <div class="col">
-                <span id="refreshRateHelpInline" class="form-text">
-                    black = off
-                </span>
-            </div> -->
+            <div class="col-md-2">
+                <label for="event-end" class="form-label">End</label>
+                <input type="datetime-local" name="event.end" id="event-end" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label for="event-repeat" class="form-label">Repeat</label>
+                <select name="event.repeat" id="event-repeat" class="form-select">
+                    <option value="none">One-time</option>
+                    <option value="daily">Daily</option>
+                </select>
+            </div>
         </div>
-        <div class="row g-3 align-items-center">
-            <div class="col">
-                <label for="inputEventTime" class="col-form-label">Time</label>
+        <div class="row g-3 mb-2">
+            <div class="col-auto">
+                <label class="form-label d-block">Tick color overrides (leave blank to not override)</label>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <div>
+                        <label for="event-past-color" class="form-label small mb-0">Past</label>
+                        <input type="color" name="event.past-color" id="event-past-color" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;" value="#FF0000">
+                    </div>
+                    <div>
+                        <label for="event-present-color" class="form-label small mb-0">Present</label>
+                        <input type="color" name="event.present-color" id="event-present-color" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;">
+                    </div>
+                    <div>
+                        <label for="event-future-color" class="form-label small mb-0">Future</label>
+                        <input type="color" name="event.future-color" id="event-future-color" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;" value="#00FF00">
+                    </div>
+                    <div>
+                        <label for="event-future-color-b" class="form-label small mb-0">Future B</label>
+                        <input type="color" name="event.future-color-b" id="event-future-color-b" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;">
+                    </div>
+                </div>
+                <p class="form-text small mb-0">Leave a color blank (or black) to not override that tick color.</p>
             </div>
-            <div class="col">
-                <input  name="event.time" type="datetime-local" style="width: 100px;" id="inputEventTime"
-                    class="form-control" aria-describedby="tickPastColorHelpInline">
-            </div>
-            <!-- <div class="col">
-                        <span id="refreshRateHelpInline" class="form-text">
-                            black = off
-                        </span>
-                    </div> -->
         </div>
-        <button type="submit">+ Add</button>
+        <button type="submit" class="btn btn-primary">+ Add event</button>
     </form>
+</div>
+
+<!-- Edit event modal -->
+<div class="modal fade" id="editEventModal" tabindex="-1" aria-labelledby="editEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editEventModalLabel">Edit event</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/events/edit" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="event_id" id="edit-event-id">
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-4">
+                            <label for="edit-event-title" class="form-label">Title</label>
+                            <input type="text" name="event.title" id="edit-event-title" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="edit-event-start" class="form-label">Start</label>
+                            <input type="datetime-local" name="event.start" id="edit-event-start" class="form-control" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="edit-event-end" class="form-label">End</label>
+                            <input type="datetime-local" name="event.end" id="edit-event-end" class="form-control" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="edit-event-repeat" class="form-label">Repeat</label>
+                            <select name="event.repeat" id="edit-event-repeat" class="form-select">
+                                <option value="none">One-time</option>
+                                <option value="daily">Daily</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-auto">
+                            <label class="form-label d-block">Tick color overrides (leave blank to not override)</label>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <div>
+                                    <label for="edit-event-past-color" class="form-label small mb-0">Past</label>
+                                    <input type="color" name="event.past-color" id="edit-event-past-color" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;">
+                                </div>
+                                <div>
+                                    <label for="edit-event-present-color" class="form-label small mb-0">Present</label>
+                                    <input type="color" name="event.present-color" id="edit-event-present-color" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;">
+                                </div>
+                                <div>
+                                    <label for="edit-event-future-color" class="form-label small mb-0">Future</label>
+                                    <input type="color" name="event.future-color" id="edit-event-future-color" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;">
+                                </div>
+                                <div>
+                                    <label for="edit-event-future-color-b" class="form-label small mb-0">Future B</label>
+                                    <input type="color" name="event.future-color-b" id="edit-event-future-color-b" class="form-control form-control-color" style="width: 2.5rem; height: 2rem;">
+                                </div>
+                            </div>
+                            <p class="form-text small mb-0">Leave a color blank (or black) to not override that tick color.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
     crossorigin="anonymous"></script>
+<script>
+    const editEventModal = document.getElementById('editEventModal');
+    if (editEventModal) {
+        editEventModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+
+            const id = button.getAttribute('data-event-id');
+            const title = button.getAttribute('data-title') || '';
+            const start = button.getAttribute('data-start') || '';
+            const end = button.getAttribute('data-end') || '';
+            const repeat = button.getAttribute('data-repeat') || 'none';
+            const pastColor = button.getAttribute('data-past-color') || '';
+            const presentColor = button.getAttribute('data-present-color') || '';
+            const futureColor = button.getAttribute('data-future-color') || '';
+            const futureColorB = button.getAttribute('data-future-color-b') || '';
+
+            document.getElementById('edit-event-id').value = id;
+            document.getElementById('edit-event-title').value = title;
+            document.getElementById('edit-event-start').value = start;
+            document.getElementById('edit-event-end').value = end;
+            document.getElementById('edit-event-repeat').value = repeat;
+
+            if (pastColor) document.getElementById('edit-event-past-color').value = pastColor;
+            if (presentColor) document.getElementById('edit-event-present-color').value = presentColor;
+            if (futureColor) document.getElementById('edit-event-future-color').value = futureColor;
+            if (futureColorB) document.getElementById('edit-event-future-color-b').value = futureColorB;
+        });
+    }
+</script>
 {{end}}

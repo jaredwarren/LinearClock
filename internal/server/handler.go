@@ -21,6 +21,13 @@ func New(configPath string) *Server {
 	return &Server{ConfigPath: configPath}
 }
 
+// homePageData is passed to the home template: NavActive drives the shared nav; *config.Config is embedded
+// so existing templates can keep using {{.Brightness}}, {{.Tick}}, etc.
+type homePageData struct {
+	NavActive string
+	*config.Config
+}
+
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	c, err := config.ReadConfig(s.ConfigPath)
 	if err != nil {
@@ -44,7 +51,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "parse template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.Execute(w, c); err != nil {
+	if err := tmpl.Execute(w, homePageData{NavActive: "config", Config: c}); err != nil {
 		http.Error(w, "exec template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -113,6 +120,83 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		c.Gap = i
+	}
+
+	// Calendar/iCal settings
+	if _, ok := r.Form["calendar.ical-url"]; ok {
+		// URL may be intentionally cleared to disable iCal sync.
+		c.Calendar.ICalURL = strings.TrimSpace(r.FormValue("calendar.ical-url"))
+	}
+
+	if v, ok := r.Form["calendar.poll-interval-seconds"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		if i, err := strconv.Atoi(v[0]); err != nil {
+			http.Error(w, "invalid calendar.poll-interval-seconds: "+err.Error(), http.StatusBadRequest)
+			return
+		} else if i < 10 || i > 86400 {
+			http.Error(w, "calendar.poll-interval-seconds must be 10-86400", http.StatusBadRequest)
+			return
+		} else {
+			c.Calendar.PollIntervalSeconds = i
+		}
+	}
+
+	if v, ok := r.Form["calendar.lookback-days"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		if i, err := strconv.Atoi(v[0]); err != nil {
+			http.Error(w, "invalid calendar.lookback-days: "+err.Error(), http.StatusBadRequest)
+			return
+		} else if i < 0 || i > 365 {
+			http.Error(w, "calendar.lookback-days must be 0-365", http.StatusBadRequest)
+			return
+		} else {
+			c.Calendar.LookbackDays = i
+		}
+	}
+
+	if v, ok := r.Form["calendar.lookahead-days"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		if i, err := strconv.Atoi(v[0]); err != nil {
+			http.Error(w, "invalid calendar.lookahead-days: "+err.Error(), http.StatusBadRequest)
+			return
+		} else if i < 0 || i > 365 {
+			http.Error(w, "calendar.lookahead-days must be 0-365", http.StatusBadRequest)
+			return
+		} else {
+			c.Calendar.LookaheadDays = i
+		}
+	}
+
+	// LED overrides for generated iCal events. Input comes as "#RRGGBB";
+	// hexStringToUint32 returns 0 for black, which means "no override".
+	if v, ok := r.Form["calendar.override-past-color"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		color, err := hexStringToUint32(v[0])
+		if err != nil {
+			http.Error(w, "calendar.override-past-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		c.Calendar.OverridePastColor = color
+	}
+	if v, ok := r.Form["calendar.override-present-color"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		color, err := hexStringToUint32(v[0])
+		if err != nil {
+			http.Error(w, "calendar.override-present-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		c.Calendar.OverridePresentColor = color
+	}
+	if v, ok := r.Form["calendar.override-future-color"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		color, err := hexStringToUint32(v[0])
+		if err != nil {
+			http.Error(w, "calendar.override-future-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		c.Calendar.OverrideFutureColor = color
+	}
+	if v, ok := r.Form["calendar.override-future-b-color"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		color, err := hexStringToUint32(v[0])
+		if err != nil {
+			http.Error(w, "calendar.override-future-b-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		c.Calendar.OverrideFutureBColor = color
 	}
 
 	// Tick.StartLed: non-negative
@@ -216,7 +300,7 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		c.Num.FutureColor = color
 	}
 
-	if err := config.WriteConfig(s.ConfigPath, c); err != nil {
+	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
 		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

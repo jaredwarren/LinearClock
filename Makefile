@@ -5,6 +5,13 @@ HOST = clock.local
 # SSH user for deploy script (script uses DEPLOY_USER to avoid shell USER)
 DEPLOY_USER = pi
 
+
+run-configd:
+	go run cmd/configd/main.go
+
+run-clockd:
+	go run cmd/cli-clock/main.go
+
 .PHONY: build-clockd build-configd build-all
 build-clockd:
 	$(MAKE) -C clock build

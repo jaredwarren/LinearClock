@@ -175,12 +175,24 @@ make deploy-config  # configd only
 
 ---
 
+## Events
+
+The config UI has an **Events** page (nav link “Events”) where you can add an ordered list of events that override the tick colors (Past, Present, Future, Future B) when active.
+
+- **One-time events** run only on the start date, between the start and end date-time you set.
+- **Daily (repeating) events** run every day: the clock compares the current time-of-day to the event’s start/end time-of-day (no midnight wrap in v1).
+- **Order matters**: events are applied in list order; later events override earlier ones for any color you set. Leave a color blank (or black) to mean “don’t override” that tick color.
+- Events are stored in `config.gob` with the rest of the config, so clockd uses them automatically when it reloads.
+
+Use the table on the Events page to reorder (up/down), delete, or add events with title, start/end date-time, repeat type, and optional color overrides.
+
+---
+
 ## TODO / roadmap
 
 - Fix tests (e.g. colors, icon)
 - Tune refresh rate / performance
 - Ensure brightness config is applied correctly
-- Events: delete/update, persist for clock to read, show on clock, repeat (see `notes.md`)
 
 ---
 

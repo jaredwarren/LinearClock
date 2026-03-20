@@ -51,26 +51,169 @@ func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
 	leds := d.Leds(0)
 	numTickLeds := cfg.Tick.NumHours * ticksPerHourInt
 
-	// 2. Set tick LEDs
+	// 2. Set tick LEDs (event overrides apply only to ticks whose time block overlaps the event)
 	setTickLEDs(leds, numTickLeds, int(lastLed), ticksPerHour, cfg, t)
 
-	// 3. Set "number" LEDs
+	// 4. Set "number" LEDs
 	setNumberLEDs(leds, numTickLeds, int(hourTick), cfg)
 
-	// TODO: add override here for specific events
-
-	// 4. Apply global brightness
+	// 5. Apply global brightness
 	applyBrightness(leds, cfg.Brightness)
 
-	// 5. Render to device
+	// 6. Render to device
 	return d.Render()
 }
 
+// effectiveTickColors holds the resolved tick colors (base + event overrides).
+type effectiveTickColors struct {
+	Past, Present, Future, FutureB uint32
+}
+
+// ResolveTickColorsForTime returns tick colors for time t, applying events in order.
+// Later events override earlier ones; only non-zero override fields are applied.
+// Used for debug output; the display uses per-tick resolution (see resolveColorsForTick).
+func ResolveTickColorsForTime(t time.Time, base config.TickConfig, events []config.TickEvent) effectiveTickColors {
+	out := effectiveTickColors{
+		Past:     base.PastColor,
+		Present:  base.PresentColor,
+		Future:   base.FutureColor,
+		FutureB:  base.FutureColorB,
+	}
+	for i := range events {
+		e := &events[i]
+		if !eventMatches(t, e) {
+			continue
+		}
+		if e.PastColorOverride != 0 {
+			out.Past = e.PastColorOverride
+		}
+		if e.PresentColorOverride != 0 {
+			out.Present = e.PresentColorOverride
+		}
+		if e.FutureColorOverride != 0 {
+			out.Future = e.FutureColorOverride
+		}
+		if e.FutureColorBOverride != 0 {
+			out.FutureB = e.FutureColorBOverride
+		}
+	}
+	return out
+}
+
+// EventMatches reports whether t falls within the event's window.
+// Exported for debugging (e.g. /debug/events).
+func EventMatches(t time.Time, e *config.TickEvent) bool {
+	return eventMatches(t, e)
+}
+
+func eventMatches(t time.Time, e *config.TickEvent) bool {
+	// Normalize the current time into the event's location so that
+	// date comparisons and time-of-day comparisons behave as expected
+	// regardless of the local timezone of the running process.
+	tt := t.In(e.Start.Location())
+
+	switch e.Repeat {
+	case config.RepeatNone:
+		// One-time: active only on Start's calendar day (in the event's location),
+		// and t in [Start, End].
+		if tt.Year() != e.Start.Year() ||
+			tt.Month() != e.Start.Month() ||
+			tt.Day() != e.Start.Day() {
+			return false
+		}
+		return !tt.Before(e.Start) && !tt.After(e.End)
+	case config.RepeatDaily:
+		// Daily: compare only time-of-day in the event's location.
+		tOD := tt.Hour()*60 + tt.Minute()
+		startOD := e.Start.Hour()*60 + e.Start.Minute()
+		endOD := e.End.Hour()*60 + e.End.Minute()
+		return tOD >= startOD && tOD <= endOD
+	default:
+		return false
+	}
+}
+
+// tickTimeRange returns the wall-clock time range [start, end) for tick index i on the same date as t.
+// start is inclusive, end is exclusive (tick i covers [start, end)).
+func tickTimeRange(i int, t time.Time, tick config.TickConfig) (start, end time.Time) {
+	ticksPerHour := tick.TicksPerHour
+	if ticksPerHour == 0 {
+		ticksPerHour = 4
+	}
+	minutesPerTick := 60 / ticksPerHour
+	loc := t.Location()
+	base := time.Date(t.Year(), t.Month(), t.Day(), tick.StartHour, 0, 0, 0, loc)
+	start = base.Add(time.Duration(i*minutesPerTick) * time.Minute)
+	end = start.Add(time.Duration(minutesPerTick) * time.Minute)
+	return start, end
+}
+
+// tickOverlapsEvent reports whether the tick's time range [tickStart, tickEnd) overlaps the event's window.
+// Uses strict overlap so a tick ending exactly at event start (e.g. 9:45–10:00 vs event 10:00–10:29) does not match.
+func tickOverlapsEvent(tickStart, tickEnd time.Time, e *config.TickEvent, dayRef time.Time) bool {
+	loc := e.Start.Location()
+	tickStart = tickStart.In(loc)
+	tickEnd = tickEnd.In(loc)
+	// Overlap: tick [start, end) and event [start, end] intersect ↔ tickEnd > eventStart && tickStart < eventEnd
+	overlap := func(eventStart, eventEnd time.Time) bool {
+		return tickEnd.After(eventStart) && tickStart.Before(eventEnd)
+	}
+	switch e.Repeat {
+	case config.RepeatNone:
+		if tickStart.Year() != e.Start.Year() || tickStart.Month() != e.Start.Month() || tickStart.Day() != e.Start.Day() {
+			return false
+		}
+		return overlap(e.Start, e.End)
+	case config.RepeatDaily:
+		eventStart := time.Date(dayRef.Year(), dayRef.Month(), dayRef.Day(), e.Start.Hour(), e.Start.Minute(), 0, 0, loc)
+		eventEnd := time.Date(dayRef.Year(), dayRef.Month(), dayRef.Day(), e.End.Hour(), e.End.Minute(), 0, 0, loc)
+		return overlap(eventStart, eventEnd)
+	default:
+		return false
+	}
+}
+
+// resolveColorsForTick returns the effective colors for a single tick (for past/present/future role).
+// Only events whose time window overlaps this tick's block are applied; later events override earlier.
+func resolveColorsForTick(tickIndex, lastLed int, t time.Time, base config.TickConfig, events []config.TickEvent) effectiveTickColors {
+	out := effectiveTickColors{
+		Past:     base.PastColor,
+		Present:  base.PresentColor,
+		Future:   base.FutureColor,
+		FutureB:  base.FutureColorB,
+	}
+	tickStart, tickEnd := tickTimeRange(tickIndex, t, base)
+	for i := range events {
+		e := &events[i]
+		if !tickOverlapsEvent(tickStart, tickEnd, e, t) {
+			continue
+		}
+		if e.PastColorOverride != 0 {
+			out.Past = e.PastColorOverride
+		}
+		if e.PresentColorOverride != 0 {
+			out.Present = e.PresentColorOverride
+		}
+		if e.FutureColorOverride != 0 {
+			out.Future = e.FutureColorOverride
+		}
+		if e.FutureColorBOverride != 0 {
+			out.FutureB = e.FutureColorBOverride
+		}
+	}
+	return out
+}
+
 // setTickLEDs sets the colors for the "tick" portion of the LED strip.
+// Event overrides apply only to ticks whose time block overlaps the event window.
 func setTickLEDs(leds []uint32, numTickLeds, lastLed int, ticksPerHour float64, cfg *config.Config, t time.Time) {
 	ticksPerHourInt := cfg.Tick.TicksPerHour
 	if ticksPerHourInt == 0 {
 		ticksPerHourInt = 4 // avoid division by zero in modulo
+	}
+	events := cfg.Tick.Events
+	if events == nil {
+		events = []config.TickEvent{}
 	}
 
 	isAltHour := false
@@ -86,21 +229,23 @@ func setTickLEDs(leds []uint32, numTickLeds, lastLed int, ticksPerHour float64, 
 			isAltHour = !isAltHour
 		}
 
+		colors := resolveColorsForTick(i, lastLed, t, cfg.Tick, events)
+
 		switch {
 		case i < lastLed:
 			// Past ticks
-			leds[i] = cfg.Tick.PastColor
+			leds[i] = colors.Past
 		case i > lastLed:
 			// Future ticks
 			if isAltHour {
-				leds[i] = cfg.Tick.FutureColorB
+				leds[i] = colors.FutureB
 			} else {
-				leds[i] = cfg.Tick.FutureColor
+				leds[i] = colors.Future
 			}
 		default: // i == lastLed
 			// Current tick
-			if cfg.Tick.PresentColor != 0 {
-				leds[i] = cfg.Tick.PresentColor
+			if colors.Present != 0 {
+				leds[i] = colors.Present
 			} else {
 				// Fade from a "present" color to the past color to show progress through the current tick.
 				minPerTick := 60.0 / ticksPerHour
@@ -111,7 +256,7 @@ func setTickLEDs(leds []uint32, numTickLeds, lastLed int, ticksPerHour float64, 
 				fraction := (minPerTick*minuteTick - minute + minPerTick) / minPerTick
 
 				// The fade starts from Num.PresentColor and fades to Tick.PastColor.
-				fromColor := cfg.Tick.PastColor
+				fromColor := colors.Past
 				toColor := cfg.Num.PresentColor
 				leds[i] = fade(fromColor, toColor, fraction)
 			}

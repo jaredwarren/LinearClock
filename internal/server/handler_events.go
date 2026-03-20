@@ -1,35 +1,47 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"html/template"
 	"net/http"
-	"sync"
+	"strconv"
 	"time"
+
+	"github.com/jaredwarren/clock/internal/config"
 )
 
-// Event represents a calendar event for the clock.
-type Event struct {
-	Time  time.Time
-	Color uint32
+const dateTimeLayout = "2006-01-02T15:04"
+
+// eventListData is passed to the events template (list page).
+type eventListData struct {
+	NavActive string
+	Events    []config.TickEvent
+	Config    *config.Config // for nav; can be nil
+	LastIndex int             // len(Events)-1 for move-down disable
 }
 
-// Events is the in-memory event list (for demo; replace with persistence later).
-var (
-	events   = []*Event{}
-	eventsMu sync.RWMutex
-)
-
 func (s *Server) ListEvents(w http.ResponseWriter, r *http.Request) {
-	eventsMu.Lock()
-	if len(events) == 0 {
-		events = append(events, &Event{
-			Time:  time.Now(),
-			Color: 0xFF0000,
-		})
+	c, err := config.ReadConfig(s.ConfigPath)
+	if err != nil {
+		if errorIsMissing(err) {
+			c = config.DefaultConfig.Clone()
+		} else {
+			http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
-	snapshot := append([]*Event(nil), events...)
-	eventsMu.Unlock()
+	// Ensure Events slice is non-nil for template range.
+	events := c.Tick.Events
+	if events == nil {
+		events = []config.TickEvent{}
+	}
 
+	lastIndex := 0
+	if n := len(events); n > 0 {
+		lastIndex = n - 1
+	}
+	data := eventListData{NavActive: "events", Events: events, Config: c, LastIndex: lastIndex}
 	files := []string{
 		"templates/events.html",
 		"templates/layout.html",
@@ -42,7 +54,7 @@ func (s *Server) ListEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "parse template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.Execute(w, snapshot); err != nil {
+	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "exec template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -54,33 +66,302 @@ func (s *Server) UpdateEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e := &Event{}
-
-	dateTimeStr := r.FormValue("event.time")
-	dateTime, err := time.Parse("2006-01-02T15:04", dateTimeStr)
+	c, err := config.ReadConfig(s.ConfigPath)
 	if err != nil {
-		http.Error(w, "invalid event.time: "+err.Error(), http.StatusBadRequest)
+		if errorIsMissing(err) {
+			c = config.DefaultConfig.Clone()
+		} else {
+			http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	if c.Tick.Events == nil {
+		c.Tick.Events = []config.TickEvent{}
+	}
+
+	// datetime-local sends local time with no zone; parse as local so daily events
+	// compare time-of-day in the same zone as time.Now().
+	startStr := r.FormValue("event.start")
+	start, err := time.ParseInLocation(dateTimeLayout, startStr, time.Local)
+	if err != nil {
+		http.Error(w, "invalid event.start: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	e.Time = dateTime
-
-	v := r.FormValue("event.color")
-	color, err := hexStringToUint32(v)
+	endStr := r.FormValue("event.end")
+	end, err := time.ParseInLocation(dateTimeLayout, endStr, time.Local)
 	if err != nil {
-		http.Error(w, "event.color: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid event.end: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	e.Color = color
+	if end.Before(start) {
+		http.Error(w, "event.end must be after event.start", http.StatusBadRequest)
+		return
+	}
 
-	eventsMu.Lock()
-	events = append(events, e)
-	eventsMu.Unlock()
+	repeat := r.FormValue("event.repeat")
+	if repeat != config.RepeatNone && repeat != config.RepeatDaily {
+		repeat = config.RepeatNone
+	}
 
+	evt := config.TickEvent{
+		ID:     generateEventID(),
+		Title:  r.FormValue("event.title"),
+		Start:  start,
+		End:    end,
+		Repeat: repeat,
+	}
+	if v := r.FormValue("event.past-color"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.past-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.PastColorOverride = color
+	}
+	if v := r.FormValue("event.present-color"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.present-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.PresentColorOverride = color
+	}
+	if v := r.FormValue("event.future-color"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.future-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.FutureColorOverride = color
+	}
+	if v := r.FormValue("event.future-color-b"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.future-color-b: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.FutureColorBOverride = color
+	}
+
+	c.Tick.Events = append(c.Tick.Events, evt)
+	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
+		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, "/events", http.StatusSeeOther)
 }
 
 func (s *Server) DeleteEvent(w http.ResponseWriter, r *http.Request) {
-	eventsMu.Lock()
-	defer eventsMu.Unlock()
-	// TODO: parse event_id from path and remove from events
+	id := r.PathValue("event_id")
+	if id == "" {
+		http.Error(w, "missing event_id", http.StatusBadRequest)
+		return
+	}
+	s.deleteEventByID(w, r, id)
+}
+
+// DeleteEventPost handles POST /events/delete with form field event_id (for form-based delete).
+func (s *Server) DeleteEventPost(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	id := r.FormValue("event_id")
+	if id == "" {
+		http.Redirect(w, r, "/events", http.StatusSeeOther)
+		return
+	}
+	s.deleteEventByID(w, r, id)
+}
+
+// EditEvent handles POST /events/edit to update an existing event by ID.
+func (s *Server) EditEvent(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	id := r.FormValue("event_id")
+	if id == "" {
+		http.Error(w, "missing event_id", http.StatusBadRequest)
+		return
+	}
+
+	c, err := config.ReadConfig(s.ConfigPath)
+	if err != nil {
+		if errorIsMissing(err) {
+			http.Redirect(w, r, "/events", http.StatusSeeOther)
+			return
+		}
+		http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	events := c.Tick.Events
+	if len(events) == 0 {
+		http.Redirect(w, r, "/events", http.StatusSeeOther)
+		return
+	}
+
+	var idx = -1
+	for i, e := range events {
+		if e.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		http.Redirect(w, r, "/events", http.StatusSeeOther)
+		return
+	}
+
+	// datetime-local sends local time with no zone; parse as local so daily events
+	// compare time-of-day in the same zone as time.Now().
+	startStr := r.FormValue("event.start")
+	start, err := time.ParseInLocation(dateTimeLayout, startStr, time.Local)
+	if err != nil {
+		http.Error(w, "invalid event.start: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	endStr := r.FormValue("event.end")
+	end, err := time.ParseInLocation(dateTimeLayout, endStr, time.Local)
+	if err != nil {
+		http.Error(w, "invalid event.end: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if end.Before(start) {
+		http.Error(w, "event.end must be after event.start", http.StatusBadRequest)
+		return
+	}
+
+	repeat := r.FormValue("event.repeat")
+	if repeat != config.RepeatNone && repeat != config.RepeatDaily {
+		repeat = config.RepeatNone
+	}
+
+	evt := &events[idx]
+	evt.Title = r.FormValue("event.title")
+	evt.Start = start
+	evt.End = end
+	evt.Repeat = repeat
+
+	if v := r.FormValue("event.past-color"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.past-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.PastColorOverride = color
+	}
+	if v := r.FormValue("event.present-color"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.present-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.PresentColorOverride = color
+	}
+	if v := r.FormValue("event.future-color"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.future-color: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.FutureColorOverride = color
+	}
+	if v := r.FormValue("event.future-color-b"); v != "" {
+		color, err := hexStringToUint32(v)
+		if err != nil {
+			http.Error(w, "event.future-color-b: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		evt.FutureColorBOverride = color
+	}
+
+	c.Tick.Events = events
+	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
+		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/events", http.StatusSeeOther)
+}
+
+func (s *Server) deleteEventByID(w http.ResponseWriter, r *http.Request, id string) {
+	c, err := config.ReadConfig(s.ConfigPath)
+	if err != nil {
+		if errorIsMissing(err) {
+			http.Redirect(w, r, "/events", http.StatusSeeOther)
+			return
+		}
+		http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	newEvents := make([]config.TickEvent, 0, len(c.Tick.Events))
+	for _, e := range c.Tick.Events {
+		if e.ID != id {
+			newEvents = append(newEvents, e)
+		}
+	}
+	c.Tick.Events = newEvents
+	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
+		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/events", http.StatusSeeOther)
+}
+
+func (s *Server) MoveEventUp(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	idx, err := strconv.Atoi(r.FormValue("index"))
+	if err != nil || idx <= 0 {
+		http.Error(w, "invalid index", http.StatusBadRequest)
+		return
+	}
+	moveEventByIndex(w, r, s, idx, idx-1)
+}
+
+func (s *Server) MoveEventDown(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	idx, err := strconv.Atoi(r.FormValue("index"))
+	if err != nil || idx < 0 {
+		http.Error(w, "invalid index", http.StatusBadRequest)
+		return
+	}
+	moveEventByIndex(w, r, s, idx, idx+1)
+}
+
+func moveEventByIndex(w http.ResponseWriter, r *http.Request, s *Server, from, to int) {
+	c, err := config.ReadConfig(s.ConfigPath)
+	if err != nil {
+		if errorIsMissing(err) {
+			http.Redirect(w, r, "/events", http.StatusSeeOther)
+			return
+		}
+		http.Error(w, "get config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	events := c.Tick.Events
+	if events == nil || from < 0 || to < 0 || from >= len(events) || to >= len(events) || from == to {
+		http.Redirect(w, r, "/events", http.StatusSeeOther)
+		return
+	}
+	events[from], events[to] = events[to], events[from]
+	c.Tick.Events = events
+	if err := WriteConfigLocked(s.ConfigPath, c); err != nil {
+		http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/events", http.StatusSeeOther)
+}
+
+func generateEventID() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "evt_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+	return "evt_" + hex.EncodeToString(b)
 }

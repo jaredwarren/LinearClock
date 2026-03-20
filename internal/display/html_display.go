@@ -40,6 +40,7 @@ func (m *HTMLDisplay) Leds(channel int) []uint32 {
 
 // Data is passed to the test template.
 type Data struct {
+	NavActive   string
 	Nums        []Num
 	Ticks       []string
 	CurrentTime time.Time
@@ -53,6 +54,7 @@ type Num struct {
 
 func (m *HTMLDisplay) Render() error {
 	data := &Data{
+		NavActive:   "preview",
 		Nums:        []Num{},
 		Ticks:       []string{},
 		CurrentTime: m.CurrentTime,

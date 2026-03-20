@@ -2,33 +2,6 @@
 
 {{define "title"}}Clock Config{{end}}
 
-{{define "nav"}}
-<div class="container-fluid">
-    <ul class="nav nav-pills">
-        <li class="nav-item">
-            <a class="nav-link disabled" href="#"><span
-                    class="material-symbols-outlined align-middle">settings</span> <span>Config</span></a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/test"><span class="material-symbols-outlined align-middle">
-                    preview
-                </span>
-                <span>Preview</span></a>
-        </li>
-        <!-- <li class="nav-item">
-            <a class="nav-link" href="/events"><span class="material-symbols-outlined align-middle">
-                date_range
-            </span>
-                <span>Event</span></a>
-        </li> -->
-        <!-- <li class="nav-item">
-            <a class="nav-link" href="/config"><span class="material-symbols-outlined align-middle">settings</span>
-                <span class="align-middle"></span></a>
-        </li> -->
-    </ul>
-</div>
-{{end}}
-
 {{define "main"}}
 <div class="container my-5">
     <form action="/config" method="POST">
@@ -275,6 +248,83 @@
                                 <span id="refreshRateHelpInline" class="form-text">
                                     # leds b/t ticks and nums
                                 </span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 mt-4">
+                            <div class="col">
+                                <h5 class="mb-0">iCal Sync</h5>
+                                <div class="form-text">
+                                    When enabled, configd will periodically fetch the iCal URL, expand recurring events, and regenerate Tick events (manual edits will be overwritten).
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-md-8">
+                                <label for="inputIcalUrl" class="form-label">iCal URL</label>
+                                <input value="{{.Calendar.ICalURL}}" id="inputIcalUrl" type="url" name="calendar.ical-url"
+                                    class="form-control" placeholder="https://example.com/calendar.ics">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="inputPollIntervalSeconds" class="form-label">Poll Interval (sec)</label>
+                                <input value="{{.Calendar.PollIntervalSeconds}}" id="inputPollIntervalSeconds" type="number"
+                                    name="calendar.poll-interval-seconds" min="10" max="86400" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-md-3">
+                                <label for="inputLookbackDays" class="form-label">Lookback Days</label>
+                                <input value="{{.Calendar.LookbackDays}}" id="inputLookbackDays" type="number"
+                                    name="calendar.lookback-days" min="0" max="365" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="inputLookaheadDays" class="form-label">Lookahead Days</label>
+                                <input value="{{.Calendar.LookaheadDays}}" id="inputLookaheadDays" type="number"
+                                    name="calendar.lookahead-days" min="0" max="365" class="form-control">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <p class="form-text mb-0">
+                                    <strong>Lookback</strong> = how many days <em>before</em> now the sync window starts;
+                                    <strong>Lookahead</strong> = how many days <em>after</em> now it ends (same time of day as “now”, not midnight).
+                                    Use at least <strong>1 lookahead</strong> to include upcoming events (e.g. weekday 10:00–10:30).
+                                    <strong>0 + 0</strong> means the window is only the current instant—almost no events match.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label d-block">LED overrides for generated iCal events (black = no override)</label>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <div>
+                                        <label for="inputOverridePastColor" class="form-label small mb-0">Past</label>
+                                        <input value="{{ColorString .Calendar.OverridePastColor}}" name="calendar.override-past-color"
+                                            id="inputOverridePastColor" type="color" class="form-control form-control-color"
+                                            style="width: 2.5rem; height: 2rem;" />
+                                    </div>
+                                    <div>
+                                        <label for="inputOverridePresentColor" class="form-label small mb-0">Present</label>
+                                        <input value="{{ColorString .Calendar.OverridePresentColor}}" name="calendar.override-present-color"
+                                            id="inputOverridePresentColor" type="color" class="form-control form-control-color"
+                                            style="width: 2.5rem; height: 2rem;" />
+                                    </div>
+                                    <div>
+                                        <label for="inputOverrideFutureColor" class="form-label small mb-0">Future</label>
+                                        <input value="{{ColorString .Calendar.OverrideFutureColor}}" name="calendar.override-future-color"
+                                            id="inputOverrideFutureColor" type="color" class="form-control form-control-color"
+                                            style="width: 2.5rem; height: 2rem;" />
+                                    </div>
+                                    <div>
+                                        <label for="inputOverrideFutureBColor" class="form-label small mb-0">Future B</label>
+                                        <input value="{{ColorString .Calendar.OverrideFutureBColor}}" name="calendar.override-future-b-color"
+                                            id="inputOverrideFutureBColor" type="color" class="form-control form-control-color"
+                                            style="width: 2.5rem; height: 2rem;" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

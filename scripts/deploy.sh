@@ -150,6 +150,7 @@ if [[ "$DO_BUILD" == true ]]; then
 fi
 
 # --- Rsync ---
+# Intentionally do NOT sync config.gob; it lives only on the Pi (managed by configd / web UI).
 echo "${YELLOW}>>>${RESET} ${BOLD}${CYAN}Rsyncing to ${GREEN}$REMOTE${RESET}${BOLD}${CYAN}...${RESET}"
 
 # Use --progress (portable); macOS rsync doesn't support --info=progress2
@@ -160,6 +161,12 @@ if [[ "$DEPLOY_CLOCK" == true ]]; then
     rsync "${RSYNC_OPTS[@]}" "$REPO_ROOT/clockd-armv7" "$REMOTE:$REMOTE_DIR/"
   else
     echo "    ${YELLOW}Warning: clockd-armv7 not found; run with build or build first.${RESET}" >&2
+  fi
+  # Install clock.service so the Pi runs clockd-armv7
+  if [[ -f "$REPO_ROOT/clock.service" ]]; then
+    rsync "${RSYNC_OPTS[@]}" "$REPO_ROOT/clock.service" "$REMOTE:$REMOTE_DIR/"
+    ssh "$REMOTE" "sudo cp $REMOTE_DIR/clock.service /lib/systemd/system/ && sudo systemctl daemon-reload"
+    echo "    ${GREEN}installed clock.service (ExecStart=clockd-armv7)${RESET}"
   fi
 fi
 
@@ -174,6 +181,12 @@ if [[ "$DEPLOY_CONFIG" == true ]]; then
   fi
   if [[ -d "$REPO_ROOT/public" ]]; then
     rsync "${RSYNC_OPTS[@]}" "$REPO_ROOT/public/" "$REMOTE:$REMOTE_DIR/public/"
+  fi
+  # Install config.service so the Pi runs configd-armv7 (not config-armv7)
+  if [[ -f "$REPO_ROOT/config.service" ]]; then
+    rsync "${RSYNC_OPTS[@]}" "$REPO_ROOT/config.service" "$REMOTE:$REMOTE_DIR/"
+    ssh "$REMOTE" "sudo cp $REMOTE_DIR/config.service /lib/systemd/system/ && sudo systemctl daemon-reload"
+    echo "    ${GREEN}installed config.service (ExecStart=configd-armv7)${RESET}"
   fi
 fi
 
