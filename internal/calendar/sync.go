@@ -75,6 +75,10 @@ func generateTickEventsFromICalCalendar(cal *ics.Calendar, windowStartUTC, windo
 			continue
 		}
 
+		if veventStatusCancelled(vevent) {
+			continue
+		}
+
 		title := veventTitle(vevent)
 		uid := veventUID(vevent)
 
@@ -119,6 +123,13 @@ func generateTickEventsFromICalCalendar(cal *ics.Calendar, windowStartUTC, windo
 		dtStartUTC := dtStart.UTC()
 		dtStartLine := fmt.Sprintf("DTSTART;TZID=UTC:%s", dtStartUTC.Format("20060102T150405"))
 		ruleText := dtStartLine + "\n" + "RRULE:" + rruleValue
+		exdates, exErr := collectVEventExdatesUTC(vevent)
+		if exErr != nil {
+			return nil, fmt.Errorf("EXDATE for uid=%q: %w", uid, exErr)
+		}
+		if line := rruleEXDATELineUTC(exdates); line != "" {
+			ruleText += "\n" + line
+		}
 
 		rule, err := rrule.Parse(ruleText)
 		if err != nil {
@@ -173,6 +184,99 @@ func veventTitle(e *ics.VEvent) string {
 		return id
 	}
 	return "iCal event"
+}
+
+func veventStatusCancelled(e *ics.VEvent) bool {
+	if e == nil {
+		return false
+	}
+	p := e.GetProperty(ics.ComponentPropertyStatus)
+	if p == nil || strings.TrimSpace(p.Value) == "" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(p.Value), string(ics.ObjectStatusCancelled))
+}
+
+// collectVEventExdatesUTC returns excluded recurrence instance starts in UTC.
+// graham/rrule only keeps a single EXDATE line when parsing, so callers merge into one line via rruleEXDATELineUTC.
+func collectVEventExdatesUTC(e *ics.VEvent) ([]time.Time, error) {
+	if e == nil {
+		return nil, nil
+	}
+	props := e.GetProperties(ics.ComponentPropertyExdate)
+	if len(props) == 0 {
+		return nil, nil
+	}
+	seen := make(map[int64]struct{})
+	var out []time.Time
+	for _, p := range props {
+		ts, err := parseExdatePropertyToTimes(p)
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range ts {
+			t = t.UTC()
+			k := t.UnixNano()
+			if _, ok := seen[k]; ok {
+				continue
+			}
+			seen[k] = struct{}{}
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
+func parseExdatePropertyToTimes(p *ics.IANAProperty) ([]time.Time, error) {
+	if p == nil {
+		return nil, nil
+	}
+	valType := ""
+	if v, ok := p.ICalParameters[string(ics.ParameterValue)]; ok && len(v) > 0 {
+		valType = strings.ToUpper(strings.TrimSpace(v[0]))
+	}
+	tzLoc := time.UTC
+	if tz, ok := p.ICalParameters["TZID"]; ok && len(tz) > 0 {
+		loc, err := time.LoadLocation(tz[0])
+		if err != nil {
+			return nil, fmt.Errorf("exdate TZID %q: %w", tz[0], err)
+		}
+		tzLoc = loc
+	}
+
+	var out []time.Time
+	for _, raw := range strings.Split(p.Value, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		if valType == "DATE" || (len(raw) == 8 && !strings.Contains(raw, "T")) {
+			t, err := time.ParseInLocation("20060102", raw, tzLoc)
+			if err != nil {
+				return nil, fmt.Errorf("exdate VALUE=DATE %q: %w", raw, err)
+			}
+			out = append(out, t.UTC())
+			continue
+		}
+		t, err := rrule.ParseDateTime(raw, tzLoc)
+		if err != nil {
+			return nil, fmt.Errorf("exdate datetime %q: %w", raw, err)
+		}
+		out = append(out, t.UTC())
+	}
+	return out, nil
+}
+
+// rruleEXDATELineUTC builds a line graham/rrule.Parse accepts (prefix must be "EXDATE;").
+func rruleEXDATELineUTC(times []time.Time) string {
+	if len(times) == 0 {
+		return ""
+	}
+	parts := make([]string, len(times))
+	for i, t := range times {
+		parts[i] = rrule.DateTimeToString(t.UTC())
+	}
+	return "EXDATE;TZID=UTC:" + strings.Join(parts, ",")
 }
 
 func overlapsWindow(start, end, windowStart, windowEnd time.Time) bool {

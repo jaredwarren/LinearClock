@@ -183,3 +183,146 @@ END:VCALENDAR`
 	}
 }
 
+func TestGenerateTickEvents_RRULEWithEXDATE(t *testing.T) {
+	// Middle day excluded (typical “this instance” edit on calendar providers).
+	const icsStr = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:evt-ex
+DTSTART:20240615T120000Z
+DTEND:20240615T123000Z
+RRULE:FREQ=DAILY;COUNT=3
+EXDATE:20240616T120000Z
+SUMMARY:Recurring with skip
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ics.ParseCalendar(strings.NewReader(icsStr))
+	if err != nil {
+		t.Fatalf("parse calendar: %v", err)
+	}
+
+	calCfg := config.CalendarConfig{}
+	windowStart := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2024, 6, 18, 0, 0, 0, 0, time.UTC)
+
+	events, err := generateTickEventsFromICalCalendar(
+		cal,
+		windowStart.UTC(),
+		windowEnd.UTC(),
+		windowStart.UTC().Add(-1*time.Nanosecond),
+		windowEnd.UTC().Add(1*time.Nanosecond),
+		calCfg,
+	)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events (EXDATE drops 16th), got %d", len(events))
+	}
+	want := []time.Time{
+		time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC),
+		time.Date(2024, 6, 17, 12, 0, 0, 0, time.UTC),
+	}
+	for i := range want {
+		if !events[i].Start.Equal(want[i]) {
+			t.Fatalf("event[%d] start: got %v want %v", i, events[i].Start, want[i])
+		}
+	}
+}
+
+func TestGenerateTickEvents_MovedInstanceOverridePlusEXDATE(t *testing.T) {
+	const icsStr = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:series-uid
+DTSTART:20240615T120000Z
+DTEND:20240615T123000Z
+RRULE:FREQ=DAILY;COUNT=3
+EXDATE:20240616T120000Z
+SUMMARY:Series
+END:VEVENT
+BEGIN:VEVENT
+UID:series-uid
+RECURRENCE-ID:20240616T120000Z
+DTSTART:20240616T180000Z
+DTEND:20240616T183000Z
+SUMMARY:Series (moved)
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ics.ParseCalendar(strings.NewReader(icsStr))
+	if err != nil {
+		t.Fatalf("parse calendar: %v", err)
+	}
+
+	calCfg := config.CalendarConfig{}
+	windowStart := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2024, 6, 18, 0, 0, 0, 0, time.UTC)
+
+	events, err := generateTickEventsFromICalCalendar(
+		cal,
+		windowStart.UTC(),
+		windowEnd.UTC(),
+		windowStart.UTC().Add(-1*time.Nanosecond),
+		windowEnd.UTC().Add(1*time.Nanosecond),
+		calCfg,
+	)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if len(events) != 3 {
+		t.Fatalf("expected 3 events (15, moved 16, 17), got %d", len(events))
+	}
+	// 16th should be the override window only.
+	var foundMoved bool
+	for _, e := range events {
+		if e.Start.Equal(time.Date(2024, 6, 16, 12, 0, 0, 0, time.UTC)) {
+			t.Fatalf("old 12:00 instance on 16th should not exist; got %v", e)
+		}
+		if e.Start.Equal(time.Date(2024, 6, 16, 18, 0, 0, 0, time.UTC)) {
+			foundMoved = true
+		}
+	}
+	if !foundMoved {
+		t.Fatalf("expected moved instance at 18:00 UTC on 16th")
+	}
+}
+
+func TestGenerateTickEvents_StatusCancelledSkipped(t *testing.T) {
+	const icsStr = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:gone
+DTSTART:20240615T100000Z
+DTEND:20240615T110000Z
+STATUS:CANCELLED
+SUMMARY:Cancelled
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ics.ParseCalendar(strings.NewReader(icsStr))
+	if err != nil {
+		t.Fatalf("parse calendar: %v", err)
+	}
+
+	calCfg := config.CalendarConfig{}
+	windowStart := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
+
+	events, err := generateTickEventsFromICalCalendar(
+		cal,
+		windowStart.UTC(),
+		windowEnd.UTC(),
+		windowStart.UTC().Add(-1*time.Nanosecond),
+		windowEnd.UTC().Add(1*time.Nanosecond),
+		calCfg,
+	)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("expected no events, got %d", len(events))
+	}
+}
+
