@@ -34,9 +34,14 @@ clean:
 	rm -rf dist
 	rm -f clockd configd clockd-armv7 configd-armv7
 
-.PHONY: push
-push: build-clockd-arm build-configd-arm
-	scp clockd-armv7 configd-armv7 $$USER@$$HOST:/home/pi/go/github.com/jaredwarren/clock/
+.PHONY: push push-clockd push-configd
+push: push-clockd push-configd
+
+push-clockd: build-clockd-arm
+	scp clockd-armv7 $$USER@$$HOST:/home/pi/go/github.com/jaredwarren/clock/
+
+push-configd: build-configd-arm
+	scp configd-armv7 $$USER@$$HOST:/home/pi/go/github.com/jaredwarren/clock/
 
 # Deploy: build, rsync to Pi, restart systemd (see scripts/deploy.sh --help)
 .PHONY: deploy deploy-clock deploy-config

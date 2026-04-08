@@ -47,8 +47,9 @@ func (s *Server) ListEvents(w http.ResponseWriter, r *http.Request) {
 		"templates/layout.html",
 	}
 	tmpl, err := template.New("base").Funcs(template.FuncMap{
-		"ColorString": ColorString,
-		"TimeFormat":  TimeFormat,
+		"ColorString":     ColorString,
+		"TimeFormat":      TimeFormat,
+		"TimeFormatLocal": TimeFormatLocal,
 	}).ParseFiles(files...)
 	if err != nil {
 		http.Error(w, "parse template: "+err.Error(), http.StatusInternalServerError)

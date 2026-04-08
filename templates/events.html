@@ -37,8 +37,8 @@
                     </form>
                 </td>
                 <td>{{$e.Title}}</td>
-                <td>{{TimeFormat $e.Start}}</td>
-                <td>{{TimeFormat $e.End}}</td>
+                <td>{{TimeFormatLocal $e.Start}}</td>
+                <td>{{TimeFormatLocal $e.End}}</td>
                 <td>{{if eq $e.Repeat "daily"}}Daily{{else}}One-time{{end}}</td>
                 <td>
                     {{if ne $e.PastColorOverride 0}}<span class="badge rounded-pill" style="background: {{ColorString $e.PastColorOverride}}">Past</span>{{end}}
@@ -54,8 +54,8 @@
                             data-bs-target="#editEventModal"
                             data-event-id="{{$e.ID}}"
                             data-title="{{$e.Title}}"
-                            data-start="{{TimeFormat $e.Start}}"
-                            data-end="{{TimeFormat $e.End}}"
+                            data-start="{{TimeFormatLocal $e.Start}}"
+                            data-end="{{TimeFormatLocal $e.End}}"
                             data-repeat="{{$e.Repeat}}"
                             data-past-color="{{if ne $e.PastColorOverride 0}}{{ColorString $e.PastColorOverride}}{{end}}"
                             data-present-color="{{if ne $e.PresentColorOverride 0}}{{ColorString $e.PresentColorOverride}}{{end}}"

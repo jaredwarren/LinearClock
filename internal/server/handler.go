@@ -82,6 +82,10 @@ func TimeFormat(t time.Time) string {
 	return t.Format("2006-01-02T15:04")
 }
 
+func TimeFormatLocal(t time.Time) string {
+	return t.In(time.Local).Format("2006-01-02T15:04")
+}
+
 func errorIsMissing(err error) bool {
 	return strings.Contains(err.Error(), "no such file or directory")
 }

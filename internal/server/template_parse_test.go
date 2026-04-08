@@ -17,9 +17,10 @@ func TestTemplateParseSmoke(t *testing.T) {
 	}
 
 	tmpl, err := template.New("base").Funcs(template.FuncMap{
-		"ColorString": ColorString,
-		"TimeNum":     TimeNum,
-		"TimeFormat":  TimeFormat,
+		"ColorString":     ColorString,
+		"TimeNum":         TimeNum,
+		"TimeFormat":      TimeFormat,
+		"TimeFormatLocal": TimeFormatLocal,
 		"timefmt": func(tt time.Time) string {
 			return tt.Format("15:04")
 		},

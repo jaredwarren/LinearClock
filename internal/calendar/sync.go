@@ -68,6 +68,14 @@ func generateTickEventsFromICalCalendar(cal *ics.Calendar, windowStartUTC, windo
 		return nil, fmt.Errorf("nil iCal calendar")
 	}
 
+	// Some providers emit moved-instance overrides as separate VEVENTs with
+	// RECURRENCE-ID but without adding EXDATE to the master series.
+	// Track those recurrence starts so RRULE expansion can suppress originals.
+	recurrenceOverridesUTC, err := collectRecurrenceOverridesUTC(cal)
+	if err != nil {
+		return nil, err
+	}
+
 	var out []config.TickEvent
 
 	for _, vevent := range cal.Events() {
@@ -141,6 +149,11 @@ func generateTickEventsFromICalCalendar(cal *ics.Calendar, windowStartUTC, windo
 		dur := dtEnd.Sub(dtStart)
 		var occStart time.Time
 		for iter.Step(&occStart) {
+			if overriddenStarts, ok := recurrenceOverridesUTC[uid]; ok {
+				if _, exists := overriddenStarts[occStart.UTC().UnixNano()]; exists {
+					continue
+				}
+			}
 			occEnd := occStart.Add(dur)
 			if !overlapsWindow(occStart, occEnd, windowStartUTC, windowEndUTC) {
 				continue
@@ -195,6 +208,73 @@ func veventStatusCancelled(e *ics.VEvent) bool {
 		return false
 	}
 	return strings.EqualFold(strings.TrimSpace(p.Value), string(ics.ObjectStatusCancelled))
+}
+
+// collectRecurrenceOverridesUTC gathers RECURRENCE-ID instants (in UTC) by UID.
+// These instants suppress matching expanded RRULE starts from a master series.
+func collectRecurrenceOverridesUTC(cal *ics.Calendar) (map[string]map[int64]struct{}, error) {
+	out := make(map[string]map[int64]struct{})
+	if cal == nil {
+		return out, nil
+	}
+	for _, vevent := range cal.Events() {
+		if vevent == nil {
+			continue
+		}
+		recurrenceIDUTC, ok, err := veventRecurrenceIDUTC(vevent)
+		if err != nil {
+			return nil, fmt.Errorf("RECURRENCE-ID parse for uid=%q: %w", veventUID(vevent), err)
+		}
+		if !ok {
+			continue
+		}
+		uid := veventUID(vevent)
+		if uid == "" {
+			continue
+		}
+		if out[uid] == nil {
+			out[uid] = make(map[int64]struct{})
+		}
+		out[uid][recurrenceIDUTC.UnixNano()] = struct{}{}
+	}
+	return out, nil
+}
+
+func veventRecurrenceIDUTC(e *ics.VEvent) (time.Time, bool, error) {
+	if e == nil {
+		return time.Time{}, false, nil
+	}
+	p := e.GetProperty(ics.ComponentPropertyRecurrenceId)
+	if p == nil || strings.TrimSpace(p.Value) == "" {
+		return time.Time{}, false, nil
+	}
+
+	valType := ""
+	if v, ok := p.ICalParameters[string(ics.ParameterValue)]; ok && len(v) > 0 {
+		valType = strings.ToUpper(strings.TrimSpace(v[0]))
+	}
+	tzLoc := time.UTC
+	if tz, ok := p.ICalParameters["TZID"]; ok && len(tz) > 0 {
+		loc, err := time.LoadLocation(tz[0])
+		if err != nil {
+			return time.Time{}, false, fmt.Errorf("TZID %q: %w", tz[0], err)
+		}
+		tzLoc = loc
+	}
+
+	raw := strings.TrimSpace(p.Value)
+	if valType == "DATE" || (len(raw) == 8 && !strings.Contains(raw, "T")) {
+		t, err := time.ParseInLocation("20060102", raw, tzLoc)
+		if err != nil {
+			return time.Time{}, false, err
+		}
+		return t.UTC(), true, nil
+	}
+	t, err := rrule.ParseDateTime(raw, tzLoc)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return t.UTC(), true, nil
 }
 
 // collectVEventExdatesUTC returns excluded recurrence instance starts in UTC.
