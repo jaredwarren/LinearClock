@@ -52,6 +52,14 @@ deploy-clock:
 deploy-config:
 	./scripts/deploy.sh config
 
+.PHONY: restart restart-clock restart-config
+restart:
+	ssh $$USER@$$HOST "sudo systemctl restart config clock"
+restart-clock:
+	ssh $$USER@$$HOST "sudo systemctl restart clock"
+restart-config:
+	ssh $$USER@$$HOST "sudo systemctl restart config"
+
 .PHONY: test
 test:
 	go test ./...
