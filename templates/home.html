@@ -289,6 +289,35 @@
                                     name="tick.transition-max-steps" min="1" max="12" class="form-control">
                             </div>
                         </div>
+                        <div class="row mb-3 mt-4">
+                            <div class="col">
+                                <h5 class="mb-0">Override Start Visual</h5>
+                                <div class="form-text">
+                                    Play a one-shot effect when an override first becomes active on a refresh boundary.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-md-4">
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="inputOverrideStartVisualEnabled" name="tick.override-start-visual-enabled" {{if .Tick.OverrideStartVisualEnabled}}checked{{end}}>
+                                    <label class="form-check-label" for="inputOverrideStartVisualEnabled">
+                                        Enable override start visual
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="inputOverrideStartVisualEffect" class="form-label">Effect</label>
+                                <select id="inputOverrideStartVisualEffect" name="tick.override-start-visual-effect" class="form-select">
+                                    <option value="rainbow_chase" {{if eq .Tick.OverrideStartVisualEffect "rainbow_chase"}}selected{{end}}>Rainbow chase</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="inputOverrideStartVisualDurationMs" class="form-label">Duration (ms)</label>
+                                <input value="{{.Tick.OverrideStartVisualDurationMs}}" id="inputOverrideStartVisualDurationMs" type="number"
+                                    name="tick.override-start-visual-duration-ms" min="100" max="5000" class="form-control">
+                            </div>
+                        </div>
 
                         <div class="row mb-3 mt-4">
                             <div class="col">

@@ -91,13 +91,26 @@ func startClock(ctx context.Context, dev display.Displayer, initialCfg *config.C
 	}
 
 	cfg := initialCfg
+	prevActiveOverrides := map[string]struct{}{}
 
 	for {
 		now := time.Now()
+		activeOverrides := display.ActiveOverrideKeysAtTime(now, cfg.Tick.Events)
+		overrideStarted := hasNewOverrideActive(activeOverrides, prevActiveOverrides)
+		if overrideStarted {
+			testCfg := cfg.Clone()
+			testCfg.Tick.OverrideStartVisualEnabled = true
+			testCfg.Tick.OverrideStartVisualEffect = config.OverrideStartVisualRainbowChase
+			testCfg.Tick.OverrideStartVisualDurationMs = 1500 * 3
+			if err := display.PlayOverrideStartVisual(testCfg, dev); err != nil {
+				log.Printf("override start visual error: %v", err)
+			}
+		}
 		if err := display.DisplayTime(now, cfg, dev); err != nil {
 			log.Printf("display time error: %v", err)
 			return
 		}
+		prevActiveOverrides = toSet(activeOverrides)
 
 		if nc, err := config.ReadConfig(configFile); err == nil {
 			cfg = nc
@@ -126,4 +139,21 @@ func startClock(ctx context.Context, dev display.Displayer, initialCfg *config.C
 		case <-timer.C:
 		}
 	}
+}
+
+func hasNewOverrideActive(current []string, prev map[string]struct{}) bool {
+	for _, key := range current {
+		if _, ok := prev[key]; !ok {
+			return true
+		}
+	}
+	return false
+}
+
+func toSet(items []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		out[item] = struct{}{}
+	}
+	return out
 }

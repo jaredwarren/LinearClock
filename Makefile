@@ -60,6 +60,10 @@ restart-clock:
 restart-config:
 	ssh $$USER@$$HOST "sudo systemctl restart config"
 
+.PHONY: ssh
+ssh:
+	ssh $$USER@$$HOST
+
 .PHONY: test
 test:
 	go test ./...

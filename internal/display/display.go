@@ -87,6 +87,42 @@ func DisplayTime(t time.Time, cfg *config.Config, d Displayer) error {
 	return nil
 }
 
+// ActiveOverrideKeysAtTime returns stable keys for events active at t.
+// Keys are suitable for edge detection in the clock loop.
+func ActiveOverrideKeysAtTime(t time.Time, events []config.TickEvent) []string {
+	keys := make([]string, 0, len(events))
+	for i := range events {
+		e := &events[i]
+		if !eventMatches(t, e) {
+			continue
+		}
+		key := e.ID
+		if key == "" {
+			key = e.Start.Format(time.RFC3339Nano) + "|" + e.End.Format(time.RFC3339Nano) + "|" + e.Repeat
+		}
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+// PlayOverrideStartVisual renders the configured override-start visual.
+func PlayOverrideStartVisual(cfg *config.Config, d Displayer) error {
+	if cfg == nil || d == nil || !cfg.Tick.OverrideStartVisualEnabled {
+		return nil
+	}
+
+	durationMs := cfg.Tick.OverrideStartVisualDurationMs
+	if durationMs <= 0 {
+		durationMs = 1000
+	}
+	switch cfg.Tick.OverrideStartVisualEffect {
+	case "", config.OverrideStartVisualRainbowChase:
+		return playRainbowChase(d, cfg, time.Duration(durationMs)*time.Millisecond)
+	default:
+		return nil
+	}
+}
+
 func normalizedTransitionSteps(v int) int {
 	if v <= 0 {
 		return 1
@@ -95,6 +131,50 @@ func normalizedTransitionSteps(v int) int {
 		return 12
 	}
 	return v
+}
+
+func playRainbowChase(d Displayer, cfg *config.Config, duration time.Duration) error {
+	leds := d.Leds(0)
+	if len(leds) == 0 {
+		return nil
+	}
+	baseFrame := append([]uint32(nil), leds...)
+	numTickLeds := cfg.Tick.NumHours * cfg.Tick.TicksPerHour
+	if numTickLeds <= 0 {
+		numTickLeds = len(leds)
+	}
+	if numTickLeds > len(leds) {
+		numTickLeds = len(leds)
+	}
+	if duration <= 0 {
+		duration = time.Second
+	}
+
+	const frameDelay = 33 * time.Millisecond
+	frames := int(duration / frameDelay)
+	if frames < numTickLeds {
+		frames = numTickLeds
+	}
+	if frames < 1 {
+		frames = 1
+	}
+	stepDelay := duration / time.Duration(frames)
+
+	for frame := 0; frame < frames; frame++ {
+		copy(leds, baseFrame)
+		head := frame % numTickLeds
+		for i := 0; i < numTickLeds; i++ {
+			h := float64((i*360/numTickLeds + head*8) % 360)
+			leds[i] = applyBrightnessToColor(hsvToRGB(h, 1.0, 1.0), cfg.Brightness)
+		}
+		if err := d.Render(); err != nil {
+			return err
+		}
+		if frame < frames-1 {
+			time.Sleep(stepDelay)
+		}
+	}
+	return nil
 }
 
 // effectiveTickColors holds the resolved tick colors (base + event overrides).
@@ -107,10 +187,10 @@ type effectiveTickColors struct {
 // Used for debug output; the display uses per-tick resolution (see resolveColorsForTick).
 func ResolveTickColorsForTime(t time.Time, base config.TickConfig, events []config.TickEvent) effectiveTickColors {
 	out := effectiveTickColors{
-		Past:     base.PastColor,
-		Present:  base.PresentColor,
-		Future:   base.FutureColor,
-		FutureB:  base.FutureColorB,
+		Past:    base.PastColor,
+		Present: base.PresentColor,
+		Future:  base.FutureColor,
+		FutureB: base.FutureColorB,
 	}
 	for i := range events {
 		e := &events[i]
@@ -210,10 +290,10 @@ func tickOverlapsEvent(tickStart, tickEnd time.Time, e *config.TickEvent, dayRef
 // Only events whose time window overlaps this tick's block are applied; later events override earlier.
 func resolveColorsForTick(tickIndex, lastLed int, t time.Time, base config.TickConfig, events []config.TickEvent) effectiveTickColors {
 	out := effectiveTickColors{
-		Past:     base.PastColor,
-		Present:  base.PresentColor,
-		Future:   base.FutureColor,
-		FutureB:  base.FutureColorB,
+		Past:    base.PastColor,
+		Present: base.PresentColor,
+		Future:  base.FutureColor,
+		FutureB: base.FutureColorB,
 	}
 	tickStart, tickEnd := tickTimeRange(tickIndex, t, base)
 	for i := range events {
@@ -407,6 +487,56 @@ func hexToRGB(c uint32) (uint8, uint8, uint8) {
 	g := uint8(c >> 8)
 	b := uint8(c)
 	return r, g, b
+}
+
+func hsvToRGB(h, s, v float64) uint32 {
+	if s <= 0 {
+		u := uint8(v * 255)
+		return rgbToHex(u, u, u)
+	}
+	h = math.Mod(h, 360)
+	if h < 0 {
+		h += 360
+	}
+	c := v * s
+	x := c * (1 - math.Abs(math.Mod(h/60.0, 2)-1))
+	m := v - c
+
+	var r, g, b float64
+	switch {
+	case h < 60:
+		r, g, b = c, x, 0
+	case h < 120:
+		r, g, b = x, c, 0
+	case h < 180:
+		r, g, b = 0, c, x
+	case h < 240:
+		r, g, b = 0, x, c
+	case h < 300:
+		r, g, b = x, 0, c
+	default:
+		r, g, b = c, 0, x
+	}
+
+	return rgbToHex(
+		uint8((r+m)*255),
+		uint8((g+m)*255),
+		uint8((b+m)*255),
+	)
+}
+
+func applyBrightnessToColor(c uint32, brightness int) uint32 {
+	if brightness >= 256 {
+		return c
+	}
+	if brightness < 0 {
+		brightness = 0
+	}
+	r, g, b := hexToRGB(c)
+	r = uint8((uint16(r) * uint16(brightness)) >> 8)
+	g = uint8((uint16(g) * uint16(brightness)) >> 8)
+	b = uint8((uint16(b) * uint16(brightness)) >> 8)
+	return rgbToHex(r, g, b)
 }
 
 // Clear turns off all LEDs on the display and renders. Returns any error from Render.

@@ -56,6 +56,10 @@ const (
 	RepeatDaily = "daily"
 )
 
+const (
+	OverrideStartVisualRainbowChase = "rainbow_chase"
+)
+
 // TickEvent is an event that overrides tick colors between Start and End.
 // Order in the slice matters: later events override earlier ones.
 // Zero value for a color override means "do not override".
@@ -93,6 +97,11 @@ type TickConfig struct {
 	TransitionDurationMs int // total transition time in milliseconds
 	TransitionMaxSteps   int // safety cap for interpolation steps
 
+	// Optional visual to play when an override enters the present window.
+	OverrideStartVisualEnabled    bool
+	OverrideStartVisualEffect     string
+	OverrideStartVisualDurationMs int
+
 	// Events override tick colors in order when active
 	Events []TickEvent
 }
@@ -117,10 +126,10 @@ var DefaultConfig = &Config{
 		LookbackDays:        1,
 		LookaheadDays:       14,
 		// Default overrides are intentionally distinct to make iCal highlighting visible.
-		OverridePastColor:     0xFF00FF,
-		OverridePresentColor:  0x00FFFF,
-		OverrideFutureColor:   0xFFFF00,
-		OverrideFutureBColor:  0x00FF00,
+		OverridePastColor:    0xFF00FF,
+		OverridePresentColor: 0x00FFFF,
+		OverrideFutureColor:  0xFFFF00,
+		OverrideFutureBColor: 0x00FF00,
 	},
 	Tick: TickConfig{
 		FutureColor:  0x00ff00,
@@ -131,9 +140,12 @@ var DefaultConfig = &Config{
 		TicksPerHour: 4,
 		NumHours:     6,
 		// Disabled by default for low-overhead behavior.
-		TransitionEnabled:    false,
-		TransitionDurationMs: 0,
-		TransitionMaxSteps:   6,
+		TransitionEnabled:             false,
+		TransitionDurationMs:          0,
+		TransitionMaxSteps:            6,
+		OverrideStartVisualEnabled:    true,
+		OverrideStartVisualEffect:     OverrideStartVisualRainbowChase,
+		OverrideStartVisualDurationMs: 1000,
 	},
 	Num: NumConfig{
 		PastColor:    0xffff00,
@@ -304,6 +316,12 @@ func (c *Config) Migrate() {
 	if c.Tick.TransitionDurationMs < 0 {
 		c.Tick.TransitionDurationMs = 0
 	}
+	if c.Tick.OverrideStartVisualEffect == "" {
+		c.Tick.OverrideStartVisualEffect = DefaultConfig.Tick.OverrideStartVisualEffect
+	}
+	if c.Tick.OverrideStartVisualDurationMs <= 0 {
+		c.Tick.OverrideStartVisualDurationMs = DefaultConfig.Tick.OverrideStartVisualDurationMs
+	}
 
 	if c.Version < CurrentConfigVersion {
 		c.Version = CurrentConfigVersion
@@ -350,6 +368,14 @@ func (c *Config) Validate() error {
 	}
 	if c.Tick.TransitionMaxSteps < 1 || c.Tick.TransitionMaxSteps > 12 {
 		return fmt.Errorf("tick.transition-max-steps must be 1-12")
+	}
+	if c.Tick.OverrideStartVisualDurationMs < 100 || c.Tick.OverrideStartVisualDurationMs > 5000 {
+		return fmt.Errorf("tick.override-start-visual-duration-ms must be 100-5000")
+	}
+	switch c.Tick.OverrideStartVisualEffect {
+	case OverrideStartVisualRainbowChase:
+	default:
+		return fmt.Errorf("tick.override-start-visual-effect must be %q", OverrideStartVisualRainbowChase)
 	}
 
 	for i := range c.Tick.Events {

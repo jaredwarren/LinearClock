@@ -24,10 +24,10 @@ func New(configPath string) *Server {
 // homePageData is passed to the home template: NavActive drives the shared nav; *config.Config is embedded
 // so existing templates can keep using {{.Brightness}}, {{.Tick}}, etc.
 type homePageData struct {
-	NavActive          string
-	TickLedCount       int
-	NumberLedCount     int
-	RequiredStripLeds  int
+	NavActive           string
+	TickLedCount        int
+	NumberLedCount      int
+	RequiredStripLeds   int
 	ClockdAllocatedLeds int
 	*config.Config
 }
@@ -285,6 +285,28 @@ func (s *Server) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		c.Tick.TransitionMaxSteps = i
+	}
+
+	c.Tick.OverrideStartVisualEnabled = r.FormValue("tick.override-start-visual-enabled") == "on"
+	if v, ok := r.Form["tick.override-start-visual-effect"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		effect := strings.TrimSpace(v[0])
+		if effect != config.OverrideStartVisualRainbowChase {
+			http.Error(w, "tick.override-start-visual-effect must be rainbow_chase", http.StatusBadRequest)
+			return
+		}
+		c.Tick.OverrideStartVisualEffect = effect
+	}
+	if v, ok := r.Form["tick.override-start-visual-duration-ms"]; ok && len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+		i, err := strconv.Atoi(v[0])
+		if err != nil {
+			http.Error(w, "invalid tick.override-start-visual-duration-ms: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if i < 100 || i > 5000 {
+			http.Error(w, "tick.override-start-visual-duration-ms must be 100-5000", http.StatusBadRequest)
+			return
+		}
+		c.Tick.OverrideStartVisualDurationMs = i
 	}
 
 	if v := r.FormValue("tick.past-color"); v != "" {
